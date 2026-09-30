@@ -1,0 +1,5 @@
+pandas
+requests
+pyarrow
+fg-data-profiling
+setuptools<82
