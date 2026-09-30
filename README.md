@@ -61,7 +61,7 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | Alerta | Correção |
 |---|---|
 | `SpatialDimType` desbalanceado (80,9%) | **é o sinal do misto país/agregado**: separados pela própria coluna que declara o que cada registro é |
-| `Value` traz `'53.8 [52.8-54.9]'` | número lido de `NumericValue`; nenhuma conversão comeu dado |
+| `Value` traz `'53.8 [52.8-54.9]'` | número lido de `NumericValue`; em nenhuma conversão se perdeu dados |
 | `Dim1`, `Low`, `High` com 40,6% ausentes | são os 7.648 registros dos dois indicadores de gasto, que não têm sexo nem intervalo de confiança |
 | `TimeDimType` constante `"YEAR"` | confirma série anual: ano em inteiro, não em data |
 | `NumericValue` com valores únicos | cada linha é uma medida própria |
@@ -87,8 +87,8 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | `gasto_saude` | `pais_id` + `ano` |
 | `determinantes_socioeconomicos` | `pais_id` + `ano` |
 
-A expectativa de vida **não** é "um país por ano": a WHO publica a mesma
-medida para homens, mulheres e total na mesma tabela.
+A expectativa de vida **não** é dado por "um país por ano": a WHO publica a mesma
+medida separada para homens, mulheres e total, na mesma tabela.
 
 ## Recorte 2000 a 2018
 
@@ -115,10 +115,23 @@ As 23 variações acima de 10% não são erro — são eventos verificáveis:
 | Syrian Arab Republic | 2012 | −9,6% | guerra civil |
 | Myanmar | 2008 / 2009 | −9,3% / +12,4% | ciclo político de 2008 |
 
-Extremo legítimo se marca, não se remove: remover essas linhas destruiria dado
-real de evento público.
+Desvios justificados não se removem, se marcam. Remover essas linhas destruiria dados
+reais, de acontecimentos reais.
 
-**`expectativa_vida_faixa`** e **`escolaridade_anos_faixa`** — quartis. Os
-limites saem da distribuição, não de escolha: expectativa de vida entre 36,6 e
-87,1 anos, escolaridade entre 3 e 23 anos. Serve para agrupar comparáveis sem
-arbitrariedade.
+**`expectativa_vida_faixa`** e **`escolaridade_anos_faixa`** — quartis: o dado é
+cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentis 25,
+50 e 75 da própria distribuição.
+
+| Expectativa de vida | De | até | Registros |
+|---|---|---|---|
+| muito baixa | 36,6 | 63,6 | 2.637 |
+| baixa | 63,6 | 71,7 | 2.636 |
+| alta | 71,7 | 77,0 | 2.636 |
+| muito alta | 77,0 | 87,1 | 2.636 |
+
+| Escolaridade esperada | De | até | Registros |
+|---|---|---|---|
+| muito baixa | 3 | 11 | 515 |
+| baixa | 11 | 13 | 515 |
+| alta | 13 | 15 | 514 |
+| muito alta | 15 | 23 | 515 |
