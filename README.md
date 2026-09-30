@@ -62,7 +62,7 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 |---|---|
 | `SpatialDimType` desbalanceado (80,9%) | **é o sinal do misto país/agregado**: separados pela própria coluna que declara o que cada registro é |
 | `Value` traz `'53.8 [52.8-54.9]'` | número lido de `NumericValue`; nenhuma conversão comeu dado |
-| `Dim1`, `Low`, `High` com 40,6% ausentes | são exclusivos do indicador de expectativa de vida |
+| `Dim1`, `Low`, `High` com 40,6% ausentes | são os 7.648 registros dos dois indicadores de gasto, que não têm sexo nem intervalo de confiança |
 | `TimeDimType` constante `"YEAR"` | confirma série anual: ano em inteiro, não em data |
 | `NumericValue` com valores únicos | cada linha é uma medida própria |
 | 14 alertas de correlação alta | `TimeDim`, `TimeDimensionValue`, `Begin` e `End` dizem a mesma coisa |
@@ -77,9 +77,6 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | `paises` | 295 | `paises.parquet` | 217 |
 | `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 |
 | `escolaridade` | 5.168 | `determinantes_socioeconomicos.parquet` | |
-
-Um CSV pode virar duas tabelas (separado por `IndicatorCode`) e dois CSVs podem
-virar uma tabela só (junção por país e ano).
 
 ## Chaves
 
@@ -96,17 +93,32 @@ medida para homens, mulheres e total na mesma tabela.
 ## Recorte 2000 a 2018
 
 A escolaridade foi descontinuada em 2019 e sua cobertura cai no fim: 92 países
-em 2018, 35 em 2019, **zero em 2020 e 2021**. Com o recorte anterior o projeto
-carregava três anos vazios, e nenhum script avisava.
-
-Atenção ao `lastupdated`: a escolaridade marca 2024, mas o dado acaba em 2019.
-Quem responde à atualidade é o **último ano com valor**.
+em 2018, 35 em 2019, 0 em 2020 e 2021.
+Atenção ao `lastupdated` da fonte: a escolaridade marca 2024, mas o dado acaba em 2019.
 
 ## Atributos derivados
 
-`variacao_pct` (contra o ano anterior, por país e sexo), `expectativa_vida_faixa`
-e `escolaridade_anos_faixa` (quartis).
+**`variacao_pct`** — variação percentual contra o ano anterior, por país **e
+por sexo**. Os 555 ausentes são os primeiros anos: 185 países × 3 sexos.
 
-As 519 variações acima de 10% **não são erro**: Haiti em 2011 (+67,0%, após o
-terremoto), Somália em 2012 (+20,3%, fim da fome),Síria em 2015–2017 (−15,3% a
-+14,6%, guerra civil). Extremo legítimo se marca, não se remove.
+A chave precisa ter as duas dimensões. Agrupar só por país comara um ano com
+outro sexo do mesmo ano, porque as linhas alternam de sexo dentro do ano.
+
+As 23 variações acima de 10% não são erro — são eventos verificáveis:
+
+| País | Ano | Variação | O que aconteceu |
+|---|---|---|---|
+| Haiti | 2010 | **−34,2%** | terremoto de janeiro de 2010 |
+| Haiti | 2011 | **+52,9%** | recuperação do sistema de saúde |
+| Somalia, Fed. Rep. | 2011 | −11,5% | fome de 2011 |
+| Somalia, Fed. Rep. | 2012 | +14,4% | fim da fome |
+| Syrian Arab Republic | 2012 | −9,6% | guerra civil |
+| Myanmar | 2008 / 2009 | −9,3% / +12,4% | ciclo político de 2008 |
+
+Extremo legítimo se marca, não se remove: remover essas linhas destruiria dado
+real de evento público.
+
+**`expectativa_vida_faixa`** e **`escolaridade_anos_faixa`** — quartis. Os
+limites saem da distribuição, não de escolha: expectativa de vida entre 36,6 e
+87,1 anos, escolaridade entre 3 e 23 anos. Serve para agrupar comparáveis sem
+arbitrariedade.

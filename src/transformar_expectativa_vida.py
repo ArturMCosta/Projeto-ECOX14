@@ -105,7 +105,7 @@ def main():
     df = conferir_chave(df)
     df = remover_erros(df, "expectativa_vida", 0, 100)
     df = limpeza.cruzar_com_paises(df, PRATA, ["pais_nome", "regiao"])
-    df = limpeza.variacao_anual(df, "pais_id", "ano", "expectativa_vida")
+    df = limpeza.variacao_anual(df, ["pais_id", "sexo"], "ano", "expectativa_vida")
     df = limpeza.faixa_por_quartil(df, "expectativa_vida", FAIXA_ESPERATIVA)
 
     destino = salvar(df[COLUNAS])

@@ -50,8 +50,14 @@ def remover_vazias(df, colunas):
 
 
 def variacao_anual(df, chave, tempo, valor):
-    df = df.sort_values([chave, tempo])
-    df["variacao_pct"] = df.groupby(chave)[valor].pct_change() * 100
+    """Variacao em relacao ao registro anterior da mesma chave.
+
+    A chave precisa ser uma lista quando a tabela tem mais de uma dimensao:
+    com uma linha por pais, ano e sexo, agrupar so por pais comara um ano
+    com outro sexo do mesmo ano.
+    """
+    df = df.sort_values(chave + [tempo])
+    df["variacao_pct"] = df.groupby(chave, sort=False)[valor].pct_change() * 100
     return df
 
 
