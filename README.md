@@ -23,9 +23,6 @@ python src/transformar_gasto_saude.py
 python src/transformar_determinantes.py
 ```
 
-A exploração vem antes da transformação porque **não se limpa antes de saber o
-que está errado**.
-
 ## Fontes
 
 | Fonte | Indicadores |
@@ -76,10 +73,10 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | Bronze (CSV) | Registros | → Prata (Parquet) | Registros |
 |---|---|---|---|
 | `indicadores` · `WHOSIS_000001` | 11.172 | `expectativa_vida.parquet` | 10.545 |
-| `indicadores` · os dois de gasto | 3.824 | `gasto_saude.parquet` | 3.615 |
+| `indicadores` · `GHED_CHEGDP_SHA2011` e `GHED_CHE_pc_US_SHA2011` | 3.824 | `gasto_saude.parquet` | 3.615 |
 | `paises` | 295 | `paises.parquet` | 217 |
 | `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 |
-| `escolaridade` | 5.168 | ↑ mesma tabela | |
+| `escolaridade` | 5.168 | `determinantes_socioeconomicos.parquet` | |
 
 Um CSV pode virar duas tabelas (separado por `IndicatorCode`) e dois CSVs podem
 virar uma tabela só (junção por país e ano).
@@ -113,12 +110,3 @@ e `escolaridade_anos_faixa` (quartis).
 As 519 variações acima de 10% **não são erro**: Haiti em 2011 (+67,0%, após o
 terremoto), Somália em 2012 (+20,3%, fim da fome),Síria em 2015–2017 (−15,3% a
 +14,6%, guerra civil). Extremo legítimo se marca, não se remove.
-
-## Git
-
-Sobe o `src/`, o `README.md`, o `requirements.txt`, a bronze e a
-proveniência. Não sobe a prata nem os relatórios — um comando refaz.
-
-**Nota:** `explorar.py` depende do `scipy`. Se o Windows bloquear a biblioteca,
-desativar em **Configurações → Segurança do Windows → Controle de Aplicativo
-Inteligente**.
