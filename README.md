@@ -92,9 +92,9 @@ medida separada para homens, mulheres e total, na mesma tabela.
 
 ## Recorte 2000 a 2018
 
-A escolaridade foi descontinuada em 2019 e sua cobertura cai no fim: 92 países
+Os dados de escolaridade foram descontinuados em 2019 e sua cobertura cai no fim: 92 países
 em 2018, 35 em 2019, 0 em 2020 e 2021.
-Atenção ao `lastupdated` da fonte: a escolaridade marca 2024, mas o dado acaba em 2019.
+Apesar do `lastupdated` da fonte indicar 2024, os dados acabam em 2019.
 
 ## Atributos derivados
 
@@ -119,8 +119,8 @@ Desvios justificados não se removem, se marcam. Remover essas linhas destruiria
 reais, de acontecimentos reais.
 
 **`expectativa_vida_faixa`** e **`escolaridade_anos_faixa`** — quartis: o dado é
-cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentis 25,
-50 e 75 da própria distribuição.
+cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentuais 25%,
+50% e 75% da própria distribuição.
 
 | Expectativa de vida | De | até | Registros |
 |---|---|---|---|
