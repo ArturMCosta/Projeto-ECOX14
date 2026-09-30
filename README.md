@@ -104,7 +104,7 @@ por sexo**. Os 555 ausentes são os primeiros anos: 185 países × 3 sexos.
 A chave precisa ter as duas dimensões. Agrupar só por país comara um ano com
 outro sexo do mesmo ano, porque as linhas alternam de sexo dentro do ano.
 
-As 23 variações acima de 10% não são erro — são eventos verificáveis:
+As 23 variações acima de 10% em suma não são erro — sendo possivelmente alguns deles verificáveis:
 
 | País | Ano | Variação | O que aconteceu |
 |---|---|---|---|
