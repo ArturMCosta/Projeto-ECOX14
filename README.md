@@ -57,7 +57,7 @@ ele que dá nome aos registros das outras três séries.
 | Bronze (CSV) | Registros | → Prata (Parquet) | Registros | Chave |
 |---|---|---|---|---|
 | `indicadores` · `WHOSIS_000001` | 11.172 | `expectativa_vida.parquet` | 10.545 | `pais_id` + `ano` + `sexo` |
-| `indicadores` · os dois de gasto | 3.824 | `gasto_saude.parquet` | 3.615 | `pais_id` + `ano` |
+| `indicadores` · `GHED_CHEGDP_SHA2011` e `GHED_CHE_pc_US_SHA2011` | 3.824 | `gasto_saude.parquet` | 3.615 | `pais_id` + `ano` |
 | `paises` | 295 | `paises.parquet` | 217 | `pais_id` |
 | `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 | `pais_id` + `ano` |
 | `escolaridade` | 5.168 | ↑ mesma tabela | | |
