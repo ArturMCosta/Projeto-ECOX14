@@ -4,25 +4,6 @@
 o nível de renda, a escolaridade e o gasto em saúde explicam da expectativa
 de vida?
 
-## Como rodar
-
-```
-pip install -r requirements.txt
-
-python src/ingerir_who_gho.py
-python src/ingerir_banco_mundial.py
-
-python src/explorar.py banco_mundial paises_*.csv
-python src/explorar.py banco_mundial pib_per_capita_*.csv
-python src/explorar.py banco_mundial escolaridade_*.csv
-python src/explorar.py who_gho indicadores_*.csv
-
-python src/transformar_paises.py
-python src/transformar_expectativa_vida.py
-python src/transformar_gasto_saude.py
-python src/transformar_determinantes.py
-```
-
 ## Fontes
 
 | Fonte | Recurso | Registros |
@@ -31,13 +12,11 @@ python src/transformar_determinantes.py
 | Banco Mundial | `NY.GDP.PCAP.CD` PIB per capita<br>`SE.SCH.LIFE` escolaridade | 10.203 |
 | Banco Mundial | `/v2/country` — lista de países | 295 |
 
-O `/v2/country` não é uma série temporal: é o dicionário com nome, região,
+O `/v2/country` não é uma série temporal: é apenas um dicionário com nome, região,
 nível de renda e coordenadas. A WHO devolve só o código ISO3 do país, então é
 ele que dá nome aos registros das outras três séries.
 
 ## O que os relatórios alertaram
-
-Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 
 ### Banco Mundial — `paises`
 
@@ -83,16 +62,13 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 | `pais_id` + `ano` |
 | `escolaridade` | 5.168 | ↑ mesma tabela | | |
 
-A expectativa de vida **não** é "um país por ano": a WHO publica a mesma
+A expectativa de vida não é "um país por ano": a WHO publica a mesma
 medida para homens, mulheres e total, na mesma tabela.
-
-Um CSV pode virar duas tabelas (separado por `IndicatorCode`) e dois CSVs podem
-virar uma tabela só (junção por país e ano).
 
 ## O que é herdado e o que é criado
 
-Das 31 colunas da prata, **25 vêm da fonte** — renomeadas, tipadas e
-filtradas. As outras **6 são criadas pelo código**.
+Das 31 colunas da prata, 25 vêm da fonte — renomeadas, tipadas e
+filtradas. As outras 6 são criadas pelo código.
 
 ### Criadas por cálculo (atributos derivados)
 
@@ -102,7 +78,6 @@ filtradas. As outras **6 são criadas pelo código**.
 | `expectativa_vida_faixa` | `expectativa_vida` | `faixa_por_quartil()` | quartil da expectativa de vida |
 | `escolaridade_anos_faixa` | `determinantes` | `faixa_por_quartil()` | quartil da escolaridade |
 
-Detalhes e cortes destas 3 colunas em [Atributos derivados](#atributos-derivados).
 
 ### Criadas por cruzamento entre fontes
 
@@ -128,8 +103,6 @@ Vêm do `merge` com `paises.parquet`, que a WHO não tem:
 | `ano` | `TimeDim` | renomeada e tipada como `Int64` |
 | `nivel_renda` | `incomeLevel.value` | renomeada e tipada como categoria **ordenada** |
 
-As 3 colunas derivadas são as únicas que desaparecem quando se apaga
-`dados/prata/`: são recalculadas do zero pelo `limpeza.py`.
 
 ## Recorte 2000 a 2018
 
@@ -142,27 +115,7 @@ Apesar do `lastupdated` da fonte indicar 2024, os dados acabam em 2019.
 **`variacao_pct`** — variação percentual contra o ano anterior, por país **e
 por sexo**.
 
-A chave precisa ter as duas dimensões. Agrupar só por país comara um ano com
-outro sexo do mesmo ano, porque as linhas alternam de sexo dentro do ano.
-
-O total é a **combinação de masculino e feminino**, e não uma terceira
-medida independente — em 3.500 dos 3.515 pares ele cai entre os dois sexos. Mas
-não é a média aritmética deles: em 2018 a Jordânia tem masculino 79,68 e
-feminino 80,14, cuja média dá 79,91, e a OMS publica 79,63 — abaixo dos dois.
-A OMS calcula a partir da tabela de mortalidade com os dois sexos juntos, e só
-6 dos 3.515 registros coincidem exatamente com a média simples.
-
-| Série | Primeiro ano | Registros sem variação |
-|---|---|---|
-| total | 2000 | 185 |
-| masculino | 2000 | 185 |
-| feminino | 2000 | 185 |
-
-Os 555 ausentes são todos de **2000** — o primeiro ano do recorte não tem ano
-anterior contra o qual se comparar. De 2001 a 2018 nenhum registro fica sem
-valor.
-
-As 23 variações acima de 10% não são erro — são eventos verificáveis:
+As 23 variações acima de 10% em suma não são erros — sendo possivelmente eventos verificáveis:
 
 | País | Ano | Variação | O que aconteceu |
 |---|---|---|---|
