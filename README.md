@@ -61,7 +61,7 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | Alerta | Correção |
 |---|---|
 | `SpatialDimType` desbalanceado (80,9%) | **é o sinal do misto país/agregado**: separados pela própria coluna que declara o que cada registro é |
-| `Value` traz `'53.8 [52.8-54.9]'` | número lido de `NumericValue`; em nenhuma conversão se perdeu dados |
+| `Value` traz `'53.8 [52.8-54.9]'` | número lido de `NumericValue`; nenhuma conversão perdeu dado |
 | `Dim1`, `Low`, `High` com 40,6% ausentes | são os 7.648 registros dos dois indicadores de gasto, que não têm sexo nem intervalo de confiança |
 | `TimeDimType` constante `"YEAR"` | confirma série anual: ano em inteiro, não em data |
 | `NumericValue` com valores únicos | cada linha é uma medida própria |
@@ -87,8 +87,48 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 | `gasto_saude` | `pais_id` + `ano` |
 | `determinantes_socioeconomicos` | `pais_id` + `ano` |
 
-A expectativa de vida **não** é dado por "um país por ano": a WHO publica a mesma
-medida separada para homens, mulheres e total, na mesma tabela.
+A expectativa de vida **não** é "um país por ano": a WHO publica a mesma
+medida para homens, mulheres e total, na mesma tabela.
+
+## O que é herdado e o que é criado
+
+Das 31 colunas da prata, **25 vêm da fonte** — renomeadas, tipadas e
+filtradas. As outras **6 são criadas pelo código**.
+
+### Criadas por cálculo (atributos derivados)
+
+| Coluna | Tabela | Função | O que é |
+|---|---|---|---|
+| `variacao_pct` | `expectativa_vida` | `variacao_anual()` | variação % contra o ano anterior, por país e sexo |
+| `expectativa_vida_faixa` | `expectativa_vida` | `faixa_por_quartil()` | quartil da expectativa de vida |
+| `escolaridade_anos_faixa` | `determinantes` | `faixa_por_quartil()` | quartil da escolaridade |
+
+### Criadas por cruzamento entre fontes
+
+Vêm do `merge` com `paises.parquet`, que a WHO não tem:
+
+| Coluna | Aparece em |
+|---|---|
+| `pais_nome` | `expectativa_vida`, `gasto_saude`, `determinantes` |
+| `regiao` | `gasto_saude`, `determinantes` |
+| `nivel_renda` | `determinantes` |
+
+### Recodificadas
+
+| Coluna | Veio de | O que mudou |
+|---|---|---|
+| `sexo` | `Dim1` (`SEX_MLE`, `SEX_FMLE`, `SEX_BTSX`) | traduzido e tipado como categoria |
+
+### Exemplos de colunas herdadas
+
+| Prata | Bronze | O que mudou |
+|---|---|---|
+| `expectativa_vida` | `NumericValue` | renomeada (veio de `NumericValue`, não de `Value`, que é texto) |
+| `ano` | `TimeDim` | renomeada e tipada como `Int64` |
+| `nivel_renda` | `incomeLevel.value` | renomeada e tipada como categoria **ordenada** |
+
+As 3 colunas derivadas são as únicas que desaparecem quando se apaga
+`dados/prata/`: são recalculadas do zero pelo `limpeza.py`.
 
 ## Recorte 2000 a 2018
 
@@ -99,12 +139,28 @@ Apesar do `lastupdated` da fonte indicar 2024, os dados acabam em 2019.
 ## Atributos derivados
 
 **`variacao_pct`** — variação percentual contra o ano anterior, por país **e
-por sexo**. Os 555 ausentes são os primeiros anos: 185 países × 3 sexos.
+por sexo**.
 
 A chave precisa ter as duas dimensões. Agrupar só por país comara um ano com
 outro sexo do mesmo ano, porque as linhas alternam de sexo dentro do ano.
 
-As 23 variações acima de 10% em suma não são erro — sendo possivelmente alguns deles verificáveis:
+São 3 séries independentes — masculino, feminino e total — e não 2 sexos mais
+uma junção. O total **não** é a média dos dois sexos: expectativa de vida não
+é aditiva, e a OMS publica a medida separada. Conferindo o Brasil em 2018, a
+média simples de feminino (78,71) e masculino (71,94) dá 75,3271, enquanto a
+fonte publica 75,3194.
+
+| Série | Primeiro ano | Registros sem variação |
+|---|---|---|
+| total | 2000 | 185 |
+| masculino | 2000 | 185 |
+| feminino | 2000 | 185 |
+
+Os 555 ausentes são todos de **2000** — o primeiro ano do recorte não tem ano
+anterior contra o qual se comparar. De 2001 a 2018 nenhum registro fica sem
+valor.
+
+As 23 variações acima de 10% não são erro — são eventos verificáveis:
 
 | País | Ano | Variação | O que aconteceu |
 |---|---|---|---|
@@ -119,8 +175,8 @@ Desvios justificados não se removem, se marcam. Remover essas linhas destruiria
 reais, de acontecimentos reais.
 
 **`expectativa_vida_faixa`** e **`escolaridade_anos_faixa`** — quartis: o dado é
-cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentuais 25%,
-50% e 75% da própria distribuição.
+cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentis
+25, 50 e 75 da própria distribuição.
 
 | Expectativa de vida | De | até | Registros |
 |---|---|---|---|
