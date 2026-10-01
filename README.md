@@ -25,10 +25,15 @@ python src/transformar_determinantes.py
 
 ## Fontes
 
-| Fonte | Indicadores |
-|---|---|
-| WHO Global Health Observatory | `WHOSIS_000001` expectativa de vida<br>`GHED_CHEGDP_SHA2011` gasto em saúde % do PIB<br>`GHED_CHE_pc_US_SHA2011` gasto em saúde por habitante |
-| Banco Mundial | `NY.GDP.PCAP.CD` PIB per capita<br>`SE.SCH.LIFE` escolaridade |
+| Fonte | Recurso | Registros |
+|---|---|---|
+| WHO Global Health Observatory | `WHOSIS_000001` expectativa de vida<br>`GHED_CHEGDP_SHA2011` gasto em saúde % do PIB<br>`GHED_CHE_pc_US_SHA2011` gasto em saúde por habitante | 18.820 |
+| Banco Mundial | `NY.GDP.PCAP.CD` PIB per capita<br>`SE.SCH.LIFE` escolaridade | 10.203 |
+| Banco Mundial | `/v2/country` — lista de países | 295 |
+
+O `/v2/country` não é uma série temporal: é o dicionário com nome, região,
+nível de renda e coordenadas. A WHO devolve só o código ISO3 do país, então é
+ele que dá nome aos registros das outras três séries.
 
 ## O que os relatórios alertaram
 
@@ -70,25 +75,19 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 
 ## O que cada arquivo virou
 
-| Bronze (CSV) | Registros | → Prata (Parquet) | Registros |
-|---|---|---|---|
-| `indicadores` · `WHOSIS_000001` | 11.172 | `expectativa_vida.parquet` | 10.545 |
-| `indicadores` · `GHED_CHEGDP_SHA2011` e `GHED_CHE_pc_US_SHA2011` | 3.824 | `gasto_saude.parquet` | 3.615 |
-| `paises` | 295 | `paises.parquet` | 217 |
-| `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 |
-| `escolaridade` | 5.168 | `determinantes_socioeconomicos.parquet` | |
-
-## Chaves
-
-| Tabela | Chave |
-|---|---|
-| `paises` | `pais_id` |
-| `expectativa_vida` | `pais_id` + `ano` + `sexo` |
-| `gasto_saude` | `pais_id` + `ano` |
-| `determinantes_socioeconomicos` | `pais_id` + `ano` |
+| Bronze (CSV) | Registros | → Prata (Parquet) | Registros | Chave |
+|---|---|---|---|---|
+| `indicadores` · `WHOSIS_000001` | 11.172 | `expectativa_vida.parquet` | 10.545 | `pais_id` + `ano` + `sexo` |
+| `indicadores` · os dois de gasto | 3.824 | `gasto_saude.parquet` | 3.615 | `pais_id` + `ano` |
+| `paises` | 295 | `paises.parquet` | 217 | `pais_id` |
+| `pib_per_capita` | 5.035 | `determinantes_socioeconomicos.parquet` | 4.016 | `pais_id` + `ano` |
+| `escolaridade` | 5.168 | ↑ mesma tabela | | |
 
 A expectativa de vida **não** é "um país por ano": a WHO publica a mesma
 medida para homens, mulheres e total, na mesma tabela.
+
+Um CSV pode virar duas tabelas (separado por `IndicatorCode`) e dois CSVs podem
+virar uma tabela só (junção por país e ano).
 
 ## O que é herdado e o que é criado
 
@@ -102,6 +101,8 @@ filtradas. As outras **6 são criadas pelo código**.
 | `variacao_pct` | `expectativa_vida` | `variacao_anual()` | variação % contra o ano anterior, por país e sexo |
 | `expectativa_vida_faixa` | `expectativa_vida` | `faixa_por_quartil()` | quartil da expectativa de vida |
 | `escolaridade_anos_faixa` | `determinantes` | `faixa_por_quartil()` | quartil da escolaridade |
+
+Detalhes e cortes destas 3 colunas em [Atributos derivados](#atributos-derivados).
 
 ### Criadas por cruzamento entre fontes
 
@@ -144,11 +145,12 @@ por sexo**.
 A chave precisa ter as duas dimensões. Agrupar só por país comara um ano com
 outro sexo do mesmo ano, porque as linhas alternam de sexo dentro do ano.
 
-São 3 séries independentes — masculino, feminino e total — e não 2 sexos mais
-uma junção. O total **não** é a média dos dois sexos: expectativa de vida não
-é aditiva, e a OMS publica a medida separada. Conferindo o Brasil em 2018, a
-média simples de feminino (78,71) e masculino (71,94) dá 75,3271, enquanto a
-fonte publica 75,3194.
+O total é a **combinação de masculino e feminino**, e não uma terceira
+medida independente — em 3.500 dos 3.515 pares ele cai entre os dois sexos. Mas
+não é a média aritmética deles: em 2018 a Jordânia tem masculino 79,68 e
+feminino 80,14, cuja média dá 79,91, e a OMS publica 79,63 — abaixo dos dois.
+A OMS calcula a partir da tabela de mortalidade com os dois sexos juntos, e só
+6 dos 3.515 registros coincidem exatamente com a média simples.
 
 | Série | Primeiro ano | Registros sem variação |
 |---|---|---|
