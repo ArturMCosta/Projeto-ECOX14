@@ -17,10 +17,11 @@ def mais_recente(bronze, padrao):
 
 
 def carregar(caminho):
-    if caminho.suffix == ".json":
-        with caminho.open(encoding="utf-8") as f:
-            return pd.DataFrame(json.load(f))
-    return pd.read_csv(caminho)
+    """A bronze e toda em JSON. O Banco Mundial devolve campos aninhados
+    ('region': {'value': ...}), e o json_normalize achata; na WHO, onde ja
+    vem plano, ele nao muda nada."""
+    with caminho.open(encoding="utf-8") as f:
+        return pd.json_normalize(json.load(f))
 
 
 def gerar(df, caminho):
@@ -37,7 +38,7 @@ def gerar(df, caminho):
 
 def main():
     fonte = sys.argv[1] if len(sys.argv) > 1 else "banco_mundial"
-    padrao = sys.argv[2] if len(sys.argv) > 2 else "paises_*.csv"
+    padrao = sys.argv[2] if len(sys.argv) > 2 else "paises_*.json"
     caminho = mais_recente(BRONZE / fonte, padrao)
     gerar(carregar(caminho), caminho)
 

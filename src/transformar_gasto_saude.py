@@ -8,9 +8,8 @@ import limpeza
 
 BRONZE = Path("dados/bronze/who_gho")
 PRATA = Path("dados/prata")
-PADRAO = "indicadores_*.csv"
-INDICADOR = "GHED_CHEGDP_SHA2011"
-INDICADOR_PER_CAPITA = "GHED_CHE_pc_US_SHA2011"
+PADRAO = "gasto_saude_pct_pib_*.json"
+PADRAO_PER_CAPITA = "gasto_saude_per_capita_*.json"
 
 COLUNAS = ["pais_id", "pais_nome", "regiao", "ano",
            "gasto_saude_pct_pib", "gasto_saude_per_capita_usd"]
@@ -21,8 +20,8 @@ def carregar():
     if not arquivos:
         raise FileNotFoundError(f"nada em {BRONZE}")
     caminho = arquivos[-1]
-    df = pd.read_csv(caminho)
-    df = df[df["IndicatorCode"] == INDICADOR].copy()
+    with caminho.open(encoding="utf-8") as f:
+        df = pd.DataFrame(json.load(f))
     print("lido:", caminho.name, df.shape)
     return df, caminho
 
@@ -46,9 +45,19 @@ def conferir_chave(df, chave=["pais_id", "ano"]):
 
 
 def juntar_per_capita(df):
-    """Os dois indicadores vem do mesmo arquivo da mesma fonte."""
-    outro = pd.read_csv(sorted(BRONZE.glob(PADRAO))[-1])
-    outro = outro[outro["IndicatorCode"] == INDICADOR_PER_CAPITA].copy()
+    """O gasto por habitante e um pacote separado da mesma fonte.
+
+    O percentual do PIB e uma razao; o valor por habitante e um numero
+    absoluto. Guardar os dois permite comparar os dois, e nao um com o outro
+    sem levar em conta o tamanho do pais.
+    """
+    arquivos = sorted(BRONZE.glob(PADRAO_PER_CAPITA))
+    if not arquivos:
+        raise FileNotFoundError(f"nada com o padrao {PADRAO_PER_CAPITA}")
+    with arquivos[-1].open(encoding="utf-8") as f:
+        outro = pd.DataFrame(json.load(f))
+    print("lido:", arquivos[-1].name, outro.shape)
+
     outro = outro.rename(columns={
         "SpatialDim": "pais_id",
         "TimeDim": "ano",

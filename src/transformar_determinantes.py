@@ -10,9 +10,11 @@ BRONZE = Path("dados/bronze/banco_mundial")
 PRATA = Path("dados/prata")
 
 SERIES = {
-    "pib_per_capita_*.csv": "pib_per_capita_usd",
-    "escolaridade_*.csv": "escolaridade_anos",
+    "pib_per_capita_*.json": "pib_per_capita_usd",
+    "escolaridade_*.json": "escolaridade_anos",
 }
+
+PADRAO_PAISES = "paises_*.json"
 
 COLUNAS_VAZIAS = ["unit", "obs_status", "decimal"]
 
@@ -27,7 +29,8 @@ def carregar(prefixo):
     if not arquivos:
         raise FileNotFoundError(f"nada com o padrao {prefixo} em {BRONZE}")
     caminho = arquivos[-1]
-    df = pd.read_csv(caminho)
+    with caminho.open(encoding="utf-8") as f:
+        df = pd.json_normalize(json.load(f))
     print("lido:", caminho.name, df.shape)
     return df, caminho
 
@@ -39,7 +42,7 @@ def tirar_colunas_vazias(df):
 
 
 def separar_agregados(df):
-    paises = pd.read_csv(sorted(BRONZE.glob("paises_*.csv"))[-1])
+    paises, _ = carregar(PADRAO_PAISES)
     e_pais = paises["region.value"] != "Aggregates"
     validos = set(paises.loc[e_pais, "id"])
     print("paises   :", len(validos))

@@ -24,3 +24,7 @@ venv/
 # Credenciais: nunca versione senhas ou chaves de acesso
 .env
 kaggle.json
+
+# Apresentacoes: arquivos gerados, nao versionados
+apresentacao.pdf
+apresentacao.pptx

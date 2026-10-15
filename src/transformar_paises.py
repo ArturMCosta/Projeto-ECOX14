@@ -8,7 +8,7 @@ import limpeza
 
 BRONZE = Path("dados/bronze/banco_mundial")
 PRATA = Path("dados/prata")
-PADRAO = "paises_*.csv"
+PADRAO = "paises_*.json"
 
 COLUNAS = ["id", "name", "capitalCity", "longitude", "latitude",
            "region.value", "incomeLevel.value"]
@@ -22,7 +22,8 @@ def carregar():
     if not arquivos:
         raise FileNotFoundError(f"nada em {BRONZE}")
     caminho = arquivos[-1]
-    df = pd.read_csv(caminho)
+    with caminho.open(encoding="utf-8") as f:
+        df = pd.json_normalize(json.load(f))
     print("lido:", caminho.name, df.shape)
     return df, caminho
 

@@ -8,8 +8,7 @@ import limpeza
 
 BRONZE = Path("dados/bronze/who_gho")
 PRATA = Path("dados/prata")
-PADRAO = "indicadores_*.csv"
-INDICADOR = "WHOSIS_000001"
+PADRAO = "expectativa_vida_*.json"
 
 MAPA_SEXO = {"SEX_BTSX": "total", "SEX_FMLE": "feminino", "SEX_MLE": "masculino"}
 
@@ -25,9 +24,10 @@ def carregar():
     if not arquivos:
         raise FileNotFoundError(f"nada em {BRONZE}")
     caminho = arquivos[-1]
-    df = pd.read_csv(caminho)
+    with caminho.open(encoding="utf-8") as f:
+        df = pd.DataFrame(json.load(f))
     print("lido:", caminho.name, df.shape)
-    return df[df["IndicatorCode"] == INDICADOR].copy(), caminho
+    return df, caminho
 
 
 def tipar_sexo(df):
