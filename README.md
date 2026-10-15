@@ -4,30 +4,6 @@
 o nível de renda, a escolaridade e o gasto em saúde explicam da expectativa
 de vida?
 
-## Como rodar
-
-```
-pip install -r requirements.txt
-
-python src/ingerir_who_gho.py
-python src/ingerir_banco_mundial.py
-
-python src/explorar.py banco_mundial paises_*.json
-python src/explorar.py banco_mundial pib_per_capita_*.json
-python src/explorar.py banco_mundial escolaridade_*.json
-python src/explorar.py who_gho expectativa_vida_*.json
-python src/explorar.py who_gho gasto_saude_pct_pib_*.json
-python src/explorar.py who_gho gasto_saude_per_capita_*.json
-
-python src/transformar_paises.py
-python src/transformar_expectativa_vida.py
-python src/transformar_gasto_saude.py
-python src/transformar_determinantes.py
-```
-
-A exploração vem antes da transformação porque **não se limpa antes de saber o
-que está errado**. Cada script de transformação lê um pacote por vez.
-
 ## Fontes
 
 | Fonte | Pacote | Formato | Registros |
@@ -39,9 +15,8 @@ que está errado**. Cada script de transformação lê um pacote por vez.
 | Banco Mundial | `NY.GDP.PCAP.CD` PIB per capita | JSON | 5.054 |
 | Banco Mundial | `SE.SCH.LIFE` escolaridade esperada | JSON | 5.168 |
 
-A bronze guarda **um arquivo por pacote de dados, no formato que o servidor
-entregou** — 29.338 registros no total. Converter formato é transformação, e
-isso pertence à camada seguinte.
+A camada bronze guarda um arquivo por pacote de dados, no formato que o servidor
+entregou — 29.338 registros no total.
 
 O `/v2/country` não é uma série temporal: é o dicionário com nome, região,
 nível de renda e coordenadas. A WHO devolve só o código ISO3 do país, então é
@@ -103,15 +78,6 @@ medida para homens, mulheres e total, na mesma tabela.
 Um pacote pode virar uma tabela com dois pacotes (junção por país e ano), e um
 mesmo pacote pode alimentar mais de uma tabela.
 
-## Chaves
-
-| Tabela | Chave |
-|---|---|
-| `paises` | `pais_id` |
-| `expectativa_vida` | `pais_id` + `ano` + `sexo` |
-| `gasto_saude` | `pais_id` + `ano` |
-| `determinantes_socioeconomicos` | `pais_id` + `ano` |
-
 ## O que é herdado e o que é criado
 
 Das 31 colunas da prata, **25 vêm da fonte** — renomeadas, tipadas e
@@ -125,7 +91,6 @@ filtradas. As outras **6 são criadas pelo código**.
 | `expectativa_vida_faixa` | `expectativa_vida` | `faixa_por_quartil()` | quartil da expectativa de vida |
 | `escolaridade_anos_faixa` | `determinantes` | `faixa_por_quartil()` | quartil da escolaridade |
 
-Detalhes e cortes destas 3 colunas em [Atributos derivados](#atributos-derivados).
 
 ### Criadas por cruzamento entre fontes
 
@@ -233,12 +198,3 @@ A ordem só aparece porque a categoria de renda foi declarada **ordenada**.
 O padrão do **ganho** é o achado: quanto mais baixa a renda, maior foi o
 avanço. A distância entre os extremos era de 22,5 anos e é de 16,8. O PIB
 multiplica por 55 entre os extremos, mas a expectativa de vida ganha 17 anos.
-
-## Git
-
-Sobe o `src/`, o `README.md`, o `requirements.txt`, a bronze e a
-proveniência. Não sobe a prata nem os relatórios — um comando refaz.
-
-**Nota:** `explorar.py` depende do `scipy`. Se o Windows bloquear a biblioteca,
-desativar em **Configurações → Segurança do Windows → Controle de Aplicativo
-Inteligente**.
