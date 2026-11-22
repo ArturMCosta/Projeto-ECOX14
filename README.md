@@ -65,12 +65,17 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 |---|---|---|---|---|
 | `expectativa_vida` | 11.172 | `expectativa_vida.parquet` | 10.545 | `pais_id` + `ano` + `sexo` |
 | `gasto_saude_pct_pib` + `gasto_saude_per_capita` | 3.824 | `gasto_saude.parquet` | 3.615 | `pais_id` + `ano` |
+| `paises` | 296 | `paises.parquet` | 217 | `pais_id` |
+| `pib_per_capita` + `escolaridade` | 10.222 | `determinantes_socioeconomicos.parquet` | 4.016 | `pais_id` + `ano` |
 
 Na expectativa de vida, 627 das 11.172 linhas eram grupos de países; no
 gasto em saúde, 209 das 3.824. Na lista de países, 79 dos 296 registros eram
 agregados.
-| `paises` | 296 | `paises.parquet` | 217 | `pais_id` |
-| `pib_per_capita` + `escolaridade` | 10.222 | `determinantes_socioeconomicos.parquet` | 4.016 | `pais_id` + `ano` |
+
+A quinta tabela não vem de um pacote novo: ela **junta três das anteriores**.
+`indicadores_enriquecidos.parquet` tem as 10.545 linhas da expectativa de vida,
+o grão mais fino, com o gasto, o PIB, a escolaridade, a região e o nível de
+renda ao lado. É o assunto da seção abaixo.
 
 A expectativa de vida **não** é "um país por ano": a WHO publica a mesma
 medida para homens, mulheres e total, na mesma tabela.
@@ -78,10 +83,115 @@ medida para homens, mulheres e total, na mesma tabela.
 Um pacote pode virar uma tabela com dois pacotes (junção por país e ano), e um
 mesmo pacote pode alimentar mais de uma tabela.
 
+## Enriquecimento: a junção que fecha o grão
+
+Enriquecer é acrescentar a um registro uma informação que já existe em outra
+tabela. **Nenhum valor nasce aqui**: o que era de outro arquivo muda de
+endereço. É o `merge`, e é por isso que a tabela final tem colunas que nenhuma
+fonte sozinha possui.
+
+A série de expectativa de vida fica sempre à esquerda: é ela que responde à
+pergunta e é o grão mais fino (país + ano + sexo). Gasto e determinantes têm
+uma linha por país e ano, então a relação esperada é `many_to_one` — e é isso
+que o `validate` declara em cada junção.
+
+### As chaves, conferidas antes de juntar
+
+| Junção | Só na série | Só na outra | Nas duas |
+|---|---:|---:|---:|
+| expectativa × `gasto_saude` | 2 (`PRI`, `PRK`) | 12 | 183 |
+| expectativa × `determinantes` | 0 | 32 | 185 |
+| expectativa × `paises` | 0 | 32 | 185 |
+
+Esses três números são a previsão do que a junção vai fazer. Conferir depois
+seria tarde: já não daria para distinguir quem não casou de quem casou trazendo
+valor ausente.
+
+### A conta antes e depois
+
+| Junção | Relação | Antes | Depois | Sem par |
+|---|---|---:|---:|---:|
+| × `gasto_saude` | `many_to_one` | 10.545 | 10.545 | 345 |
+| × `determinantes` | `many_to_one` | 10.545 | 10.545 | 111 |
+| × `paises` | `many_to_one` | 10.545 | 10.545 | **0** |
+
+Nenhuma linha se perdeu e nenhuma se repetiu. As 345 e as 111 sem par são
+lacunas da fonte, não erro de junção: 115 pares de país e ano sem gasto
+registrado e 37 sem PIB, multiplicados pelas três linhas de sexo.
+
+As junções que já existiam nos scripts de transformação também passaram a
+declarar a relação esperada:
+
+| Junção | Relação | Onde |
+|---|---|---|
+| série × `paises` | `many_to_one` | `limpeza.cruzar_com_paises()` |
+| gasto % do PIB × gasto por habitante | `one_to_one` | `transformar_gasto_saude.py` |
+| PIB × escolaridade | `one_to_one` | `transformar_determinantes.py` |
+
+### Quem não casou, e por quê
+
+São três grupos, e não dois:
+
+| Grupo | Linhas na tabela enriquecida | Por quê |
+|---|---:|---|
+| País | 10.545 | casaram com o cadastro |
+| Entidade sem cadastro | 0 | a série só traz país; as 38 linhas sem cadastro (Ilhas Cook e Niue) estão em `gasto_saude.parquet` |
+| Agregado | 0 | os 627 regionais já saíram na prata, pela coluna `SpatialDimType` |
+
+E o achado que o `left` deixa visível, na direção contrária: **32 países do
+cadastro não têm série de expectativa de vida** — Andorra, Bermudas, Hong Kong,
+Mônaco, Liechtenstein, Kosovo e outros pequenos territórios. Se a junção
+começasse pelo cadastro, eles apareceriam com valor ausente; começando pela
+série, eles simplesmente não entram. O `left` não esconde nenhum dos dois lados,
+mas **a escolha do lado é uma decisão** — e está registrada aqui.
+
+### O atributo que só existe depois da junção
+
+**`dif_mediana_regiao`** — quantos anos o país está acima ou abaixo da mediana
+da sua região do Banco Mundial, **no mesmo ano e no mesmo sexo**.
+
+Antes da junção essa conta era impossível: a série traz a região da OMS
+(`regiao_oms`), que vem na própria fonte. A região do Banco Mundial chega pelo
+cadastro, e é ela que permite comparar o país com os vizinhos.
+
+| País e ano | Sexo | Expectativa | Região | Diferença |
+|---|---|---:|---|---:|
+| Haiti (2010) | total | 39,9 | Latin America & Caribbean | **−34,7** |
+| Central African Republic (2009) | total | 25,5 | Sub-Saharan Africa | **−34,2** |
+| Brasil (2018) | total | 75,4 | Latin America & Caribbean | **+0,5** |
+| Seychelles (2000) | feminino | 76,2 | Sub-Saharan Africa | **+22,0** |
+
+As maiores distâncias negativas são **os mesmos eventos** da seção anterior:
+Haiti 2010, República Centro-Africana 2009, Somália 2011. O atributo chegou a
+elas por outro caminho, sem olhar a variação — é a confirmação de que o dado
+está contando a mesma história por duas contas independentes.
+
+São 5.168 linhas acima da mediana, 5.165 abaixo e 212 empatadas.
+
+### A armadilha do grão
+
+O resultado assume o grão da tabela mais fina: **país + ano + sexo**. As
+colunas de dinheiro se repetem nas três linhas de sexo do mesmo país e ano.
+
+| Soma de `gasto_saude_per_capita_usd` em 2018 | Valor |
+|---|---:|
+| na tabela enriquecida | US$ 595.567 |
+| na tabela de gasto | US$ 231.161 |
+
+A segunda está certa. A primeira é **2,58 vezes** maior porque soma cada país
+três vezes — e a soma é uma operação perfeitamente válida, então nada avisa.
+Para dinheiro, use `gasto_saude.parquet` ou `determinantes_socioeconomicos.parquet`.
+
+
 ## O que é herdado e o que é criado
 
-Das 31 colunas da prata, **25 vêm da fonte** — renomeadas, tipadas e
-filtradas. As outras **6 são criadas pelo código**.
+Das 31 colunas das quatro tabelas da prata, **25 vêm da fonte** — renomeadas,
+tipadas e filtradas — e **6 são criadas pelo código**. A tabela enriquecida
+não traz dado novo: são 17 colunas, das quais 16 já existiam e **uma é nova**,
+a `dif_mediana_regiao`, que só existe depois da junção.
+
+Contando nomes distintos, e não a soma das tabelas, a prata tem **21 colunas** —
+14 vindas da fonte e **7 criadas** pelo código.
 
 ### Criadas por cálculo (atributos derivados)
 
@@ -90,6 +200,7 @@ filtradas. As outras **6 são criadas pelo código**.
 | `variacao_pct` | `expectativa_vida` | `variacao_anual()` | variação % contra o ano anterior, por país e sexo |
 | `expectativa_vida_faixa` | `expectativa_vida` | `faixa_por_quartil()` | quartil da expectativa de vida |
 | `escolaridade_anos_faixa` | `determinantes` | `faixa_por_quartil()` | quartil da escolaridade |
+| `dif_mediana_regiao` | `indicadores_enriquecidos` | `diferenca_mediana_regiao()` | anos acima/abaixo da mediana da região do Banco Mundial, no mesmo ano e sexo |
 
 
 ### Criadas por cruzamento entre fontes
@@ -98,9 +209,9 @@ Vêm do `merge` com `paises.parquet`, que a WHO não tem:
 
 | Coluna | Aparece em |
 |---|---|
-| `pais_nome` | `expectativa_vida`, `gasto_saude`, `determinantes` |
-| `regiao` | `gasto_saude`, `determinantes` |
-| `nivel_renda` | `determinantes` |
+| `pais_nome` | `expectativa_vida`, `gasto_saude`, `determinantes`, `indicadores_enriquecidos` |
+| `regiao` | `gasto_saude`, `determinantes`, `indicadores_enriquecidos` |
+| `nivel_renda` | `determinantes`, `indicadores_enriquecidos` |
 
 ### Recodificadas
 
@@ -116,8 +227,8 @@ Vêm do `merge` com `paises.parquet`, que a WHO não tem:
 | `ano` | `TimeDim` | renomeada e tipada como `Int64` |
 | `nivel_renda` | `incomeLevel.value` | renomeada e tipada como categoria **ordenada** |
 
-As 3 colunas derivadas são as únicas que desaparecem quando se apaga
-`dados/prata/`: são recalculadas do zero pelo `limpeza.py`.
+As **7 colunas criadas** são as únicas que desaparecem quando se apaga
+`dados/prata/`: são recalculadas do zero pelos scripts que geram a prata.
 
 ## Recorte 2000 a 2018
 
@@ -181,6 +292,10 @@ cortado em 4 faixas do mesmo tamanho, e os pontos de corte são os percentis 25,
 | baixa | 11 | 13 | 515 |
 | alta | 13 | 15 | 514 |
 | muito alta | 15 | 23 | 515 |
+
+**`dif_mediana_regiao`** — a única coluna que depende da junção para existir. A
+conta é `expectativa_vida` menos a mediana da mesma região, ano e sexo. O
+detalhamento está na seção de enriquecimento.
 
 ## A pergunta responde?
 

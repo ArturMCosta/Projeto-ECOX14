@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 import limpeza
+import juncao
 
 BRONZE = Path("dados/bronze/banco_mundial")
 PRATA = Path("dados/prata")
@@ -101,7 +102,16 @@ def main():
         if df is None:
             df = parte
         else:
-            df = df.merge(parte, on=["pais_id", "ano"], how="outer")
+            # outer, e nao left: as duas series nao cobrem os mesmos pares de
+            # pais e ano. Com left pelo PIB, as linhas que so tem escolaridade
+            # sumiriam sem aviso. O numero e impresso logo abaixo e fica
+            # registrado no README.
+            df = df.merge(parte, on=["pais_id", "ano"], how="outer",
+                          validate="one_to_one")
+            so_escolaridade = (df["pib_per_capita_usd"].isna()
+                               & df["escolaridade_anos"].notna())
+            print("linhas so com escolaridade (motivo do outer):",
+                  int(so_escolaridade.sum()))
 
     df = limpeza.cruzar_com_paises(df, PRATA, ["pais_nome", "regiao", "nivel_renda"])
     df = limpeza.remover_vazias(df, ["pib_per_capita_usd", "escolaridade_anos"])

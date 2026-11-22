@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
+import juncao
+
 
 def tirar_espacos(df):
     df.columns = df.columns.str.strip()
@@ -57,7 +59,7 @@ def variacao_anual(df, chave, tempo, valor):
     com outro sexo do mesmo ano.
     """
     df = df.sort_values(chave + [tempo])
-    df["variacao_pct"] = df.groupby(chave, sort=False)[valor].pct_change() * 100
+    df["variacao_pct"] = df.groupby(chave, sort=False, observed=True)[valor].pct_change() * 100
     return df
 
 
@@ -77,9 +79,24 @@ def marcar_extremos_iqr(df, coluna):
 
 
 def cruzar_com_paises(df, prata, colunas):
+    """Traz do cadastro de paises as colunas que a serie nao tem.
+
+    A serie fica a esquerda porque e ela que responde a pergunta: o
+    resultado assume o grao dela, uma linha por pais e por ano (e por
+    sexo, quando houver). O cadastro tem uma linha por pais, entao a
+    relacao esperada e many_to_one -- se a chave do cadastro repetir,
+    o pandas para em vez de duplicar linhas em silencio.
+
+    Quem nao casar continua na tabela, com o nome ausente. E esse
+    pedaco que o README precisa explicar.
+    """
     paises = pd.read_parquet(Path(prata) / "paises.parquet")
-    antes = len(df)
-    df = df.merge(paises[["pais_id"] + colunas], on="pais_id", how="left")
-    print("sem nome de pais:", df["pais_nome"].isna().sum())
-    print("linhas antes:", antes, "depois:", len(df))
-    return df
+
+    juncao.conferir_chaves(df, paises, "pais_id", "pais_id")
+    resultado = juncao.juntar(
+        df, paises[["pais_id"] + colunas], "pais_id", "pais_id",
+        relacao="many_to_one",
+    )
+    sem_par = juncao.validar(df, resultado, "pais_nome")
+    print("sem nome de pais:", len(sem_par))
+    return resultado

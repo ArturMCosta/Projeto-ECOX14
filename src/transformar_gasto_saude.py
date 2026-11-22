@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 import limpeza
+import juncao
 
 BRONZE = Path("dados/bronze/who_gho")
 PRATA = Path("dados/prata")
@@ -63,10 +64,18 @@ def juntar_per_capita(df):
         "TimeDim": "ano",
         "NumericValue": "gasto_saude_per_capita_usd",
     })
-    df = df.merge(outro[["pais_id", "ano", "gasto_saude_per_capita_usd"]],
-                  on=["pais_id", "ano"], how="left")
-    print("sem per capita:", df["gasto_saude_per_capita_usd"].isna().sum())
-    return df
+    outro = outro[outro["SpatialDimType"] == "COUNTRY"].copy()
+    print("paises no pacote por habitante:", len(outro))
+
+    juncao.conferir_chaves(df, outro, "pais_id", "pais_id")
+    resultado = juncao.juntar(
+        df,
+        outro[["pais_id", "ano", "gasto_saude_per_capita_usd"]],
+        ["pais_id", "ano"], ["pais_id", "ano"],
+        relacao="one_to_one",
+    )
+    juncao.validar(df, resultado, "gasto_saude_per_capita_usd")
+    return resultado
 
 
 def salvar(df):
