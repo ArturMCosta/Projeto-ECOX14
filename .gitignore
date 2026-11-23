@@ -28,3 +28,6 @@ kaggle.json
 # Apresentacoes: arquivos gerados, nao versionados
 apresentacao.pdf
 apresentacao.pptx
+
+# Registro de execucao: gerado pelo pipeline
+pipeline.log
