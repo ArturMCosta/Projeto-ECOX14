@@ -4,6 +4,71 @@
 o nível de renda, a escolaridade e o gasto em saúde explicam da expectativa
 de vida?
 
+## Como rodar
+
+Um comando, de qualquer pasta:
+
+```bash
+python src/pipeline.py
+```
+
+| Etapa | O que faz |
+|---|---|
+| `ingestao` | baixa os pacotes: 3 indicadores da OMS e 3 do Banco Mundial |
+| `transformacao` | gera as 4 tabelas da prata |
+| `enriquecimento` | gera `indicadores_enriquecidos.parquet` |
+| `carga` | ainda não implementada |
+| `modelagem` | ainda não implementada |
+
+Retomar de uma etapa, sem refazer as anteriores:
+
+```bash
+python src/pipeline.py enriquecimento
+```
+
+A retomada existe por um motivo prático: reexecutar a ingestão bate na API de
+novo e demora. Bater na API sem necessidade não é só lento — é sobrecarregar
+um serviço público e gratuito.
+
+As etapas que faltam aparecem como `None` no `ETAPAS` do `pipeline.py`: o
+pipeline **declara o que ainda não tem**, em vez de esconder. Trocar um `None`
+por uma função é a tarefa das próximas aulas.
+
+**Isto não é um orquestrador.** Não agenda, não repete quando falha, não avisa
+ninguém, não roda etapas em paralelo. É um ponto de entrada que roda na ordem
+certa, registra o que aconteceu e para quando quebra — e saber exatamente o que
+falta aqui é o que permite decidir depois se vale adotar Airflow, Prefect ou
+Dagster.
+
+## Configuração e log
+
+Caminhos, URLs, período e códigos de indicador ficam em `src/config.py`. A raiz
+do projeto é calculada a partir do próprio arquivo
+(`Path(__file__).resolve().parent.parent`), então o caminho deixa de depender
+de onde você está quando roda.
+
+Toda mensagem vai para a tela **e** para `pipeline.log`, com hora, nível e
+módulo de origem:
+
+```
+20:00:15 INFO    transformar_paises: lido: paises_20261015.json, 296 registros
+20:00:17 WARNING juncao: sem par: 38
+20:00:17 INFO    __main__: etapa transformacao: fim em 2s
+```
+
+| Nível | Quando |
+|---|---|
+| `DEBUG` | detalhe para achar um bug hoje |
+| `INFO` | o pipeline andou — é o que você quer saber amanhã |
+| `WARNING` | estranho, mas seguiu (38 linhas sem par, 6 coordenadas ausentes) |
+| `ERROR` | não deu para continuar |
+
+Se uma etapa falha, o `log.exception` grava o rastro completo com a linha exata
+e o `raise` devolve o erro para cima: **o pipeline para**, em vez de seguir para
+a etapa seguinte com dado pela metade.
+
+O `pipeline.log` está no `.gitignore` — é registro de execução, não código.
+
 ## Fontes
 
 | Fonte | Pacote | Formato | Registros |
