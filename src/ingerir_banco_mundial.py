@@ -1,32 +1,24 @@
 import json
+import logging
 import time
 from datetime import date, datetime
-from pathlib import Path
 
 import requests
 
-URL = "https://api.worldbank.org/v2"
-BRONZE = Path("dados/bronze/banco_mundial")
+import config
 
-ANO_INICIAL = 2000
-ANO_FINAL = 2018
-POR_PAGINA = 300
-PAUSA = 0.5
-
-SERIES = {
-    "NY.GDP.PCAP.CD": "pib_per_capita",
-    "SE.SCH.LIFE": "escolaridade",
-}
+log = logging.getLogger(__name__)
 
 
 def montar_url_indicador(codigo, pagina):
-    return (f"{URL}/country/all/indicator/{codigo}"
-            f"?format=json&date={ANO_INICIAL}:{ANO_FINAL}"
-            f"&per_page={POR_PAGINA}&page={pagina}")
+    return (f"{config.URL_BANCO}/country/all/indicator/{codigo}"
+            f"?format=json&date={config.ANO_INICIAL}:{config.ANO_FINAL}"
+            f"&per_page={config.POR_PAGINA_BANCO}&page={pagina}")
 
 
 def montar_url_paises():
-    return f"{URL}/country?format=json&per_page={POR_PAGINA}"
+    return (f"{config.URL_BANCO}/country"
+            f"?format=json&per_page={config.POR_PAGINA_BANCO}")
 
 
 def pedir(url, tentativas=3):
@@ -36,8 +28,10 @@ def pedir(url, tentativas=3):
             r.raise_for_status()
             return r
         except requests.RequestException:
-            print(f"conexao caiu ({tentativa + 1}/{tentativas}), tentando de novo")
+            log.warning("conexao caiu (%s/%s), tentando de novo",
+                        tentativa + 1, tentativas)
             time.sleep(3)
+    log.error("fonte inacessivel depois de %s tentativas", tentativas)
     raise SystemExit("fonte inacessivel depois de varias tentativas")
 
 
@@ -48,15 +42,17 @@ def buscar_paises():
     codigo ISO3, como 'BRA'. Quem traduz e esta tabela.
     """
     corpo = pedir(montar_url_paises()).json()
-    print("a fonte informa:", corpo[0]["total"])
+    log.info("a fonte informa: %s registros", corpo[0]["total"])
     return corpo
 
 
 def conferir(meta, recebidos):
     if recebidos != meta["total"]:
+        log.error("recebidos %s, a fonte informou %s",
+                  recebidos, meta["total"])
         raise ValueError(
             f"recebidos {recebidos}, a fonte informou {meta['total']}")
-    print("conferido:", recebidos)
+    log.info("conferido: %s", recebidos)
 
 
 def percorrer(codigo):
@@ -64,15 +60,17 @@ def percorrer(codigo):
     acha que tem a serie inteira. Nada avisa."""
     registros = []
     pagina = 1
+    meta = {}
     while True:
         corpo = pedir(montar_url_indicador(codigo, pagina)).json()
         meta = corpo[0]
         registros = registros + (corpo[1] or [])
-        print(f"pagina {pagina} de {meta['pages']} -> {len(registros)}")
+        log.info("pagina %s de %s -> %s registros",
+                 pagina, meta["pages"], len(registros))
         if pagina >= meta["pages"]:
             break
         pagina = pagina + 1
-        time.sleep(PAUSA)
+        time.sleep(config.PAUSA_BANCO)
 
     conferir(meta, len(registros))
     return registros, meta
@@ -85,9 +83,9 @@ def salvar(registros, prefixo):
     posicao 1. Guarda-se so a lista de registros: o que o arquivo contem e o
     dado, e os metadados ficam na proveniencia, que e onde pertencem.
     """
-    BRONZE.mkdir(parents=True, exist_ok=True)
+    config.BRONZE_BANCO.mkdir(parents=True, exist_ok=True)
     hoje = date.today().strftime("%Y%m%d")
-    destino = BRONZE / f"{prefixo}_{hoje}.json"
+    destino = config.BRONZE_BANCO / f"{prefixo}_{hoje}.json"
     destino.write_text(json.dumps(registros, ensure_ascii=False, indent=2),
                        encoding="utf-8")
     return destino
@@ -96,7 +94,7 @@ def salvar(registros, prefixo):
 def registrar(prefixo, destino, linhas, extra=None):
     """Acrescenta uma linha. Nunca sobrescreve a extracao anterior."""
     info = {
-        "fonte": URL,
+        "fonte": config.URL_BANCO,
         "pacote": prefixo,
         "arquivo_bronze": destino.name,
         "formato": "JSON",
@@ -106,29 +104,31 @@ def registrar(prefixo, destino, linhas, extra=None):
     if extra:
         info.update(extra)
 
-    caminho = BRONZE / "proveniencia.jsonl"
+    caminho = config.BRONZE_BANCO / "proveniencia.jsonl"
     with caminho.open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
 
 
 def main():
+    log.info("banco_mundial: paises")
     paises = buscar_paises()
     destino = salvar(paises[1], "paises")
     registrar("paises", destino, len(paises[1]),
               extra={"lastupdated": paises[0].get("lastupdated")})
-    print("gravado em:", destino)
+    log.info("gravado em: %s", destino.name)
 
-    for codigo, prefixo in SERIES.items():
-        print("\n", prefixo, codigo)
+    for codigo, prefixo in config.SERIES_BANCO.items():
+        log.info("banco_mundial: %s (%s)", prefixo, codigo)
         registros, meta = percorrer(codigo)
         destino = salvar(registros, prefixo)
         registrar(prefixo, destino, len(registros), extra={
             "indicador": codigo,
             "lastupdated": meta["lastupdated"],
-            "periodo": f"{ANO_INICIAL}-{ANO_FINAL}",
+            "periodo": f"{config.ANO_INICIAL}-{config.ANO_FINAL}",
         })
-        print("gravado em:", destino)
+        log.info("gravado em: %s", destino.name)
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

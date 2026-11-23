@@ -24,26 +24,28 @@ As colunas de dinheiro se repetem nas tres linhas de sexo do mesmo pais e
 ano. Somar gasto ou PIB nesta tabela conta o mesmo pais tres vezes. Para
 dinheiro, use gasto_saude.parquet ou determinantes_socioeconomicos.parquet.
 
-Como executar, a partir da raiz do projeto:
+Como executar:
+    python src/pipeline.py enriquecimento
     python src/enriquecer.py
 """
 
 import json
+import logging
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
+import config
 import juncao
 
-PRATA = Path("dados/prata")
+log = logging.getLogger(__name__)
 
-SERIE = PRATA / "expectativa_vida.parquet"
-GASTO = PRATA / "gasto_saude.parquet"
-DETERMINANTES = PRATA / "determinantes_socioeconomicos.parquet"
-CADASTRO = PRATA / "paises.parquet"
+SERIE = config.PRATA / "expectativa_vida.parquet"
+GASTO = config.PRATA / "gasto_saude.parquet"
+DETERMINANTES = config.PRATA / "determinantes_socioeconomicos.parquet"
+CADASTRO = config.PRATA / "paises.parquet"
 
-DESTINO = PRATA / "indicadores_enriquecidos.parquet"
+DESTINO = config.PRATA / "indicadores_enriquecidos.parquet"
 
 CHAVE = ["pais_id", "ano"]
 
@@ -54,11 +56,10 @@ def carregar():
     determinantes = pd.read_parquet(DETERMINANTES)
     cadastro = pd.read_parquet(CADASTRO)
 
-    print("serie        :", serie.shape)
-    print("gasto        :", gasto.shape)
-    print("determinantes:", determinantes.shape)
-    print("cadastro     :", cadastro.shape)
-    print()
+    log.info("serie: %s", serie.shape)
+    log.info("gasto: %s", gasto.shape)
+    log.info("determinantes: %s", determinantes.shape)
+    log.info("cadastro: %s", cadastro.shape)
     return serie, gasto, determinantes, cadastro
 
 
@@ -66,7 +67,7 @@ def enriquecer(serie, gasto, determinantes, cadastro):
     """Junta as tres fontes na serie, uma de cada vez, conferindo cada passo."""
     antes = len(serie)
 
-    print("== 1. serie x gasto em saude ==")
+    log.info("serie x gasto em saude")
     juncao.conferir_chaves(serie, gasto, "pais_id", "pais_id")
     com_gasto = juncao.juntar(
         serie,
@@ -74,9 +75,8 @@ def enriquecer(serie, gasto, determinantes, cadastro):
         CHAVE, CHAVE, relacao="many_to_one",
     )
     juncao.validar(serie, com_gasto, "gasto_saude_pct_pib")
-    print()
 
-    print("== 2. serie x determinantes socioeconomicos ==")
+    log.info("serie x determinantes socioeconomicos")
     juncao.conferir_chaves(com_gasto, determinantes, "pais_id", "pais_id")
     com_determinantes = juncao.juntar(
         com_gasto,
@@ -84,9 +84,8 @@ def enriquecer(serie, gasto, determinantes, cadastro):
         CHAVE, CHAVE, relacao="many_to_one",
     )
     juncao.validar(com_gasto, com_determinantes, "pib_per_capita_usd")
-    print()
 
-    print("== 3. serie x cadastro (regiao e nivel de renda do Banco Mundial) ==")
+    log.info("serie x cadastro (regiao e nivel de renda do Banco Mundial)")
     juncao.conferir_chaves(com_determinantes, cadastro, "pais_id", "pais_id")
     com_cadastro = juncao.juntar(
         com_determinantes,
@@ -96,8 +95,8 @@ def enriquecer(serie, gasto, determinantes, cadastro):
     sem_par = juncao.validar(com_determinantes, com_cadastro, "regiao")
 
     if len(com_cadastro) != antes:
-        print(f"ATENCAO: a serie tinha {antes} linhas e ficou com {len(com_cadastro)}.")
-    print()
+        log.warning("a serie tinha %s linhas e ficou com %s",
+                    antes, len(com_cadastro))
 
     return com_cadastro, sem_par
 
@@ -121,9 +120,8 @@ def diferenca_mediana_regiao(df):
     ].transform("median")
     df["dif_mediana_regiao"] = (df["expectativa_vida"] - mediana).round(1)
 
-    print("linhas com o atributo:", int(df["dif_mediana_regiao"].notna().sum()))
-    print("linhas sem o atributo:", int(df["dif_mediana_regiao"].isna().sum()),
-          "(sem regiao do Banco Mundial ou sem expectativa)")
+    log.info("linhas com o atributo: %s",
+             int(df["dif_mediana_regiao"].notna().sum()))
     return df
 
 
@@ -141,9 +139,8 @@ def registrar(resultado, sem_par, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    with (PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
+    with (config.PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
-    print("proveniencia:", PRATA / "proveniencia.jsonl")
 
 
 def main():
@@ -154,7 +151,7 @@ def main():
     resultado = diferenca_mediana_regiao(resultado)
 
     resultado.to_parquet(DESTINO, index=False)
-    print("salvo em:", DESTINO, resultado.shape)
+    log.info("salvo em: %s, %s", DESTINO.name, resultado.shape)
 
     registrar(resultado, sem_par, [
         "serie a esquerda: e o grao mais fino e o que responde a pergunta",
@@ -168,4 +165,5 @@ def main():
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

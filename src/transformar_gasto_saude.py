@@ -1,14 +1,15 @@
 import json
+import logging
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
-import limpeza
+import config
 import juncao
+import limpeza
 
-BRONZE = Path("dados/bronze/who_gho")
-PRATA = Path("dados/prata")
+log = logging.getLogger(__name__)
+
 PADRAO = "gasto_saude_pct_pib_*.json"
 PADRAO_PER_CAPITA = "gasto_saude_per_capita_*.json"
 
@@ -17,13 +18,13 @@ COLUNAS = ["pais_id", "pais_nome", "regiao", "ano",
 
 
 def carregar():
-    arquivos = sorted(BRONZE.glob(PADRAO))
+    arquivos = sorted(config.BRONZE_WHO.glob(PADRAO))
     if not arquivos:
-        raise FileNotFoundError(f"nada em {BRONZE}")
+        raise FileNotFoundError(f"nada em {config.BRONZE_WHO}")
     caminho = arquivos[-1]
     with caminho.open(encoding="utf-8") as f:
         df = pd.DataFrame(json.load(f))
-    print("lido:", caminho.name, df.shape)
+    log.info("lido: %s, %s registros", caminho.name, len(df))
     return df, caminho
 
 
@@ -34,14 +35,17 @@ def tipar_ano(df):
 
 def separar_agregados(df):
     e_pais = df["SpatialDimType"] == "COUNTRY"
-    print("paises   :", e_pais.sum())
-    print("agregados:", (~e_pais).sum())
+    log.info("paises: %s | agregados: %s",
+             int(e_pais.sum()), int((~e_pais).sum()))
     return df[e_pais].copy()
 
 
 def conferir_chave(df, chave=["pais_id", "ano"]):
-    repetidas = df.duplicated(subset=chave).sum()
-    print("chaves repetidas:", repetidas)
+    repetidas = int(df.duplicated(subset=chave).sum())
+    if repetidas:
+        log.warning("chaves repetidas: %s", repetidas)
+    else:
+        log.debug("chaves repetidas: 0")
     return df.drop_duplicates(subset=chave)
 
 
@@ -52,12 +56,12 @@ def juntar_per_capita(df):
     absoluto. Guardar os dois permite comparar os dois, e nao um com o outro
     sem levar em conta o tamanho do pais.
     """
-    arquivos = sorted(BRONZE.glob(PADRAO_PER_CAPITA))
+    arquivos = sorted(config.BRONZE_WHO.glob(PADRAO_PER_CAPITA))
     if not arquivos:
         raise FileNotFoundError(f"nada com o padrao {PADRAO_PER_CAPITA}")
     with arquivos[-1].open(encoding="utf-8") as f:
         outro = pd.DataFrame(json.load(f))
-    print("lido:", arquivos[-1].name, outro.shape)
+    log.info("lido: %s, %s registros", arquivos[-1].name, len(outro))
 
     outro = outro.rename(columns={
         "SpatialDim": "pais_id",
@@ -65,7 +69,7 @@ def juntar_per_capita(df):
         "NumericValue": "gasto_saude_per_capita_usd",
     })
     outro = outro[outro["SpatialDimType"] == "COUNTRY"].copy()
-    print("paises no pacote por habitante:", len(outro))
+    log.info("paises no pacote por habitante: %s", len(outro))
 
     juncao.conferir_chaves(df, outro, "pais_id", "pais_id")
     resultado = juncao.juntar(
@@ -79,10 +83,10 @@ def juntar_per_capita(df):
 
 
 def salvar(df):
-    PRATA.mkdir(parents=True, exist_ok=True)
-    destino = PRATA / "gasto_saude.parquet"
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    destino = config.PRATA / "gasto_saude.parquet"
     df.to_parquet(destino, index=False)
-    print("salvo em:", destino, df.shape)
+    log.info("salvo em: %s, %s", destino.name, df.shape)
     return destino
 
 
@@ -95,8 +99,8 @@ def registrar(origem, destino, antes, depois, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    PRATA.mkdir(parents=True, exist_ok=True)
-    with (PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    with (config.PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
 
 
@@ -112,7 +116,7 @@ def main():
     df = separar_agregados(df)
     df = conferir_chave(df)
     df = juntar_per_capita(df)
-    df = limpeza.cruzar_com_paises(df, PRATA, ["pais_nome", "regiao"])
+    df = limpeza.cruzar_com_paises(df, ["pais_nome", "regiao"])
     df = limpeza.marcar_extremos_iqr(df, "gasto_saude_pct_pib")
 
     destino = salvar(df[COLUNAS])
@@ -126,4 +130,5 @@ def main():
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

@@ -1,13 +1,14 @@
 import json
+import logging
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
+import config
 import limpeza
 
-BRONZE = Path("dados/bronze/banco_mundial")
-PRATA = Path("dados/prata")
+log = logging.getLogger(__name__)
+
 PADRAO = "paises_*.json"
 
 COLUNAS = ["id", "name", "capitalCity", "longitude", "latitude",
@@ -18,36 +19,39 @@ ORDEM_RENDA = ["Low income", "Lower middle income",
 
 
 def carregar():
-    arquivos = sorted(BRONZE.glob(PADRAO))
+    arquivos = sorted(config.BRONZE_BANCO.glob(PADRAO))
     if not arquivos:
-        raise FileNotFoundError(f"nada em {BRONZE}")
+        raise FileNotFoundError(f"nada em {config.BRONZE_BANCO}")
     caminho = arquivos[-1]
     with caminho.open(encoding="utf-8") as f:
         df = pd.json_normalize(json.load(f))
-    print("lido:", caminho.name, df.shape)
+    log.info("lido: %s, %s registros", caminho.name, len(df))
+    log.debug("forma: %s", df.shape)
     return df, caminho
 
 
 def separar_agregados(df):
     e_pais = df["region.value"] != "Aggregates"
-    print("paises   :", e_pais.sum())
-    print("agregados:", (~e_pais).sum())
+    log.info("paises: %s | agregados: %s",
+             int(e_pais.sum()), int((~e_pais).sum()))
     return df[e_pais].copy()
 
 
 def conferir_chave(df, chave="id"):
-    repetidas = df[chave].duplicated().sum()
-    print("chaves repetidas:", repetidas)
+    repetidas = int(df[chave].duplicated().sum())
     if repetidas:
-        print(df[df[chave].duplicated(keep=False)])
+        log.warning("chaves repetidas: %s", repetidas)
+        log.debug("%s", df[df[chave].duplicated(keep=False)])
+    else:
+        log.debug("chaves repetidas: 0")
     return df.drop_duplicates(subset=chave)
 
 
 def salvar(df):
-    PRATA.mkdir(parents=True, exist_ok=True)
-    destino = PRATA / "paises.parquet"
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    destino = config.PRATA / "paises.parquet"
     df.to_parquet(destino, index=False)
-    print("salvo em:", destino, df.shape)
+    log.info("salvo em: %s, %s", destino.name, df.shape)
     return destino
 
 
@@ -60,8 +64,8 @@ def registrar(origem, destino, antes, depois, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    PRATA.mkdir(parents=True, exist_ok=True)
-    with (PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    with (config.PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
 
 
@@ -90,4 +94,5 @@ def main():
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

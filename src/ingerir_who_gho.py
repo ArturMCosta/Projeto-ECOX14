@@ -1,27 +1,19 @@
 import json
+import logging
 from datetime import date, datetime
-from pathlib import Path
 
 import requests
 
-URL = "https://ghoapi.azureedge.net/api"
-BRONZE = Path("dados/bronze/who_gho")
+import config
 
-ANO_INICIAL = 2000
-ANO_FINAL = 2018
-POR_PAGINA = 1000
-
-INDICADORES = {
-    "WHOSIS_000001": "expectativa_vida",
-    "GHED_CHEGDP_SHA2011": "gasto_saude_pct_pib",
-    "GHED_CHE_pc_US_SHA2011": "gasto_saude_per_capita",
-}
+log = logging.getLogger(__name__)
 
 
 def montar_url(codigo, skip, contar=False):
-    filtro = f"TimeDim ge {ANO_INICIAL} and TimeDim le {ANO_FINAL}"
-    url = (f"{URL}/{codigo}?$filter={filtro}"
-           f"&$top={POR_PAGINA}&$skip={skip}"
+    filtro = (f"TimeDim ge {config.ANO_INICIAL} "
+              f"and TimeDim le {config.ANO_FINAL}")
+    url = (f"{config.URL_WHO}/{codigo}?$filter={filtro}"
+           f"&$top={config.POR_PAGINA_WHO}&$skip={skip}"
            f"&$orderby=SpatialDim,TimeDim,Dim1")
     if contar:
         url = url + "&$count=true"
@@ -43,7 +35,7 @@ def baixar_pagina(codigo, skip):
 def percorrer(codigo):
     """Baixa todas as paginas e so segue se veio tudo."""
     esperado = conferir_total(codigo)
-    print("a fonte informa:", esperado)
+    log.info("a fonte informa: %s registros", esperado)
 
     registros = []
     skip = 0
@@ -54,8 +46,9 @@ def percorrer(codigo):
         registros = registros + pagina
         skip = skip + len(pagina)
 
-    print("recebidos:", len(registros))
+    log.info("recebidos: %s", len(registros))
     if len(registros) != esperado:
+        log.error("a serie veio incompleta: %s de %s", len(registros), esperado)
         raise ValueError("a serie veio incompleta")
     return registros
 
@@ -65,9 +58,9 @@ def salvar(registros, prefixo):
 
     Converter formato e transformacao, e isso pertence a camada seguinte.
     """
-    BRONZE.mkdir(parents=True, exist_ok=True)
+    config.BRONZE_WHO.mkdir(parents=True, exist_ok=True)
     hoje = date.today().strftime("%Y%m%d")
-    destino = BRONZE / f"{prefixo}_{hoje}.json"
+    destino = config.BRONZE_WHO / f"{prefixo}_{hoje}.json"
     destino.write_text(json.dumps(registros, ensure_ascii=False, indent=2),
                        encoding="utf-8")
     return destino
@@ -76,27 +69,28 @@ def salvar(registros, prefixo):
 def registrar(codigo, destino, registros):
     """Acrescenta uma linha. Nunca sobrescreve a extracao anterior."""
     info = {
-        "fonte": URL,
+        "fonte": config.URL_WHO,
         "indicador": codigo,
         "arquivo_bronze": destino.name,
         "formato": "JSON",
         "registros": len(registros),
-        "periodo": f"{ANO_INICIAL}-{ANO_FINAL}",
+        "periodo": f"{config.ANO_INICIAL}-{config.ANO_FINAL}",
         "extraido_em": datetime.now().isoformat(timespec="seconds"),
     }
-    caminho = BRONZE / "proveniencia.jsonl"
+    caminho = config.BRONZE_WHO / "proveniencia.jsonl"
     with caminho.open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
 
 
 def main():
-    for codigo, prefixo in INDICADORES.items():
-        print("\n", prefixo, codigo)
+    for codigo, prefixo in config.INDICADORES_WHO.items():
+        log.info("who/gho: %s (%s)", prefixo, codigo)
         registros = percorrer(codigo)
         destino = salvar(registros, prefixo)
         registrar(codigo, destino, registros)
-        print("gravado em:", destino)
+        log.info("gravado em: %s", destino.name)
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

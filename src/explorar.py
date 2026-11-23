@@ -1,12 +1,13 @@
 import json
+import logging
 import sys
-from pathlib import Path
 
 import pandas as pd
 from data_profiling import ProfileReport
 
-BRONZE = Path("dados/bronze")
-RELATORIOS = Path("relatorios")
+import config
+
+log = logging.getLogger(__name__)
 
 
 def mais_recente(bronze, padrao):
@@ -25,23 +26,24 @@ def carregar(caminho):
 
 
 def gerar(df, caminho):
-    print("perfilando:", caminho.name, df.shape)
-    print(df.columns.tolist())
-    print(df.isna().sum())
+    log.info("perfilando: %s, %s", caminho.name, df.shape)
+    log.debug("colunas: %s", df.columns.tolist())
+    log.debug("ausentes por coluna:\n%s", df.isna().sum())
 
-    RELATORIOS.mkdir(exist_ok=True)
-    saida = RELATORIOS / f"{caminho.stem}.html"
+    config.RELATORIOS.mkdir(parents=True, exist_ok=True)
+    saida = config.RELATORIOS / f"{caminho.stem}.html"
     ProfileReport(df, title=caminho.name).to_file(saida)
-    print("relatorio em:", saida)
+    log.info("relatorio em: %s", saida)
     return saida
 
 
 def main():
     fonte = sys.argv[1] if len(sys.argv) > 1 else "banco_mundial"
     padrao = sys.argv[2] if len(sys.argv) > 2 else "paises_*.json"
-    caminho = mais_recente(BRONZE / fonte, padrao)
+    caminho = mais_recente(config.BRONZE / fonte, padrao)
     gerar(carregar(caminho), caminho)
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()

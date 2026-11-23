@@ -13,11 +13,15 @@ Modulo nao e deposito de tudo que e generico. E um conjunto de
 funcoes que falam do mesmo assunto.
 """
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 def conferir_chaves(esquerda, direita, col_esq, col_dir):
     """Compara as chaves ANTES de juntar.
 
-    Devolve os tres conjuntos e imprime o tamanho de cada um.
+    Devolve os tres conjuntos e registra o tamanho de cada um.
     Esses numeros sao a previsao do que a juncao vai fazer:
     anote-os e compare depois.
 
@@ -32,14 +36,14 @@ def conferir_chaves(esquerda, direita, col_esq, col_dir):
     so_direita = dir_ - esq
     nos_dois = esq & dir_
 
-    print(f"chaves so na esquerda ({col_esq}):", len(so_esquerda))
-    print(f"chaves so na direita  ({col_dir}):", len(so_direita))
-    print("chaves nos dois                  :", len(nos_dois))
+    log.info("chaves so na esquerda (%s): %s", col_esq, len(so_esquerda))
+    log.info("chaves so na direita  (%s): %s", col_dir, len(so_direita))
+    log.info("chaves nos dois: %s", len(nos_dois))
 
     if so_esquerda:
-        print("  exemplos so na esquerda:", sorted(so_esquerda)[:5])
+        log.debug("  exemplos so na esquerda: %s", sorted(so_esquerda)[:5])
     if so_direita:
-        print("  exemplos so na direita :", sorted(so_direita)[:5])
+        log.debug("  exemplos so na direita: %s", sorted(so_direita)[:5])
 
     return so_esquerda, so_direita, nos_dois
 
@@ -81,14 +85,18 @@ def validar(esquerda, resultado, coluna_da_direita):
     README: quem nao casou, e por que.
     """
     sem_par = resultado[coluna_da_direita].isna()
+    total = int(sem_par.sum())
 
-    print("linhas na esquerda :", len(esquerda))
-    print("linhas no resultado:", len(resultado))
-    print("sem par            :", int(sem_par.sum()))
+    log.info("linhas na esquerda: %s", len(esquerda))
+    log.info("linhas no resultado: %s", len(resultado))
+    if total:
+        log.warning("sem par: %s", total)
+    else:
+        log.info("sem par: 0")
 
     if len(resultado) < len(esquerda):
-        print("ATENCAO: o resultado perdeu linhas. Juncao do tipo errado?")
+        log.warning("o resultado perdeu linhas. Juncao do tipo errado?")
     elif len(resultado) > len(esquerda):
-        print("ATENCAO: o resultado ganhou linhas. A chave repete na direita.")
+        log.warning("o resultado ganhou linhas. A chave repete na direita.")
 
     return resultado[sem_par]

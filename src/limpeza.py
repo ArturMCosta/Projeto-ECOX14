@@ -1,8 +1,11 @@
-from pathlib import Path
+import logging
 
 import pandas as pd
 
+import config
 import juncao
+
+log = logging.getLogger(__name__)
 
 
 def tirar_espacos(df):
@@ -26,7 +29,11 @@ def aplicar_mapa(serie, mapa):
 def tipar_categoria(df, coluna, ordem):
     antes = df[coluna].isna().sum()
     df[coluna] = pd.Categorical(df[coluna], categories=ordem, ordered=True)
-    print(f"{coluna} fora da escala:", df[coluna].isna().sum() - antes)
+    fora = df[coluna].isna().sum() - antes
+    if fora:
+        log.warning("%s: %s valores fora da escala", coluna, fora)
+    else:
+        log.debug("%s: nenhum valor fora da escala", coluna)
     return df
 
 
@@ -34,7 +41,11 @@ def tipar_numero(df, colunas):
     for coluna in colunas:
         antes = df[coluna].isna().sum()
         df[coluna] = pd.to_numeric(df[coluna], errors="coerce")
-        print(f"{coluna}: {df[coluna].isna().sum() - antes} viraram ausentes")
+        viraram = df[coluna].isna().sum() - antes
+        if viraram:
+            log.warning("%s: %s viraram ausentes", coluna, viraram)
+        else:
+            log.debug("%s: nenhum virou ausente", coluna)
     return df
 
 
@@ -46,8 +57,8 @@ def remover_vazias(df, colunas):
     registrada na fonte.
     """
     vazia = df[colunas].isna().all(axis=1)
-    print("linhas sem nenhum dos dados:", vazia.sum())
-    print("paises envolvidos:", df.loc[vazia, "pais_nome"].nunique())
+    log.info("linhas sem nenhum dos dados: %s (%s paises)",
+             int(vazia.sum()), df.loc[vazia, "pais_nome"].nunique())
     return df[~vazia].copy()
 
 
@@ -59,7 +70,8 @@ def variacao_anual(df, chave, tempo, valor):
     com outro sexo do mesmo ano.
     """
     df = df.sort_values(chave + [tempo])
-    df["variacao_pct"] = df.groupby(chave, sort=False, observed=True)[valor].pct_change() * 100
+    df["variacao_pct"] = (df.groupby(chave, sort=False, observed=True)[valor]
+                          .pct_change() * 100)
     return df
 
 
@@ -74,11 +86,12 @@ def marcar_extremos_iqr(df, coluna):
     iqr = q3 - q1
     fora = (df[coluna] < q1 - 1.5 * iqr) | (df[coluna] > q3 + 1.5 * iqr)
     df[coluna + "_extremo"] = fora
-    print(f"{coluna} extremos:", fora.sum())
+    log.info("%s: %s extremos marcados, nenhum removido",
+             coluna, int(fora.sum()))
     return df
 
 
-def cruzar_com_paises(df, prata, colunas):
+def cruzar_com_paises(df, colunas):
     """Traz do cadastro de paises as colunas que a serie nao tem.
 
     A serie fica a esquerda porque e ela que responde a pergunta: o
@@ -90,7 +103,7 @@ def cruzar_com_paises(df, prata, colunas):
     Quem nao casar continua na tabela, com o nome ausente. E esse
     pedaco que o README precisa explicar.
     """
-    paises = pd.read_parquet(Path(prata) / "paises.parquet")
+    paises = pd.read_parquet(config.PRATA / "paises.parquet")
 
     juncao.conferir_chaves(df, paises, "pais_id", "pais_id")
     resultado = juncao.juntar(
@@ -98,5 +111,4 @@ def cruzar_com_paises(df, prata, colunas):
         relacao="many_to_one",
     )
     sem_par = juncao.validar(df, resultado, "pais_nome")
-    print("sem nome de pais:", len(sem_par))
     return resultado

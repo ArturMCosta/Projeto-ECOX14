@@ -1,21 +1,20 @@
 import json
+import logging
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
+import config
 import limpeza
-import juncao
 
-BRONZE = Path("dados/bronze/banco_mundial")
-PRATA = Path("dados/prata")
+log = logging.getLogger(__name__)
+
+PADRAO_PAISES = "paises_*.json"
 
 SERIES = {
     "pib_per_capita_*.json": "pib_per_capita_usd",
     "escolaridade_*.json": "escolaridade_anos",
 }
-
-PADRAO_PAISES = "paises_*.json"
 
 COLUNAS_VAZIAS = ["unit", "obs_status", "decimal"]
 
@@ -26,19 +25,20 @@ COLUNAS = ["pais_id", "pais_nome", "regiao", "nivel_renda", "ano",
 
 
 def carregar(prefixo):
-    arquivos = sorted(BRONZE.glob(prefixo))
+    arquivos = sorted(config.BRONZE_BANCO.glob(prefixo))
     if not arquivos:
-        raise FileNotFoundError(f"nada com o padrao {prefixo} em {BRONZE}")
+        raise FileNotFoundError(
+            f"nada com o padrao {prefixo} em {config.BRONZE_BANCO}")
     caminho = arquivos[-1]
     with caminho.open(encoding="utf-8") as f:
         df = pd.json_normalize(json.load(f))
-    print("lido:", caminho.name, df.shape)
+    log.info("lido: %s, %s registros", caminho.name, len(df))
     return df, caminho
 
 
 def tirar_colunas_vazias(df):
     vazias = [c for c in COLUNAS_VAZIAS if df[c].isna().all()]
-    print("colunas vazias:", vazias)
+    log.info("colunas 100%% vazias: %s", vazias)
     return df.drop(columns=vazias)
 
 
@@ -46,18 +46,21 @@ def separar_agregados(df):
     paises, _ = carregar(PADRAO_PAISES)
     e_pais = paises["region.value"] != "Aggregates"
     validos = set(paises.loc[e_pais, "id"])
-    print("paises   :", len(validos))
-    print("agregados:", (~e_pais).sum())
+    log.info("paises: %s | agregados: %s",
+             len(validos), int((~e_pais).sum()))
 
     antes = len(df)
     df = df[df["countryiso3code"].isin(validos)].copy()
-    print("linhas antes:", antes, "depois:", len(df))
+    log.info("linhas antes: %s, depois: %s", antes, len(df))
     return df
 
 
 def conferir_chave(df, chave=["pais_id", "ano"]):
-    repetidas = df.duplicated(subset=chave).sum()
-    print("chaves repetidas:", repetidas)
+    repetidas = int(df.duplicated(subset=chave).sum())
+    if repetidas:
+        log.warning("chaves repetidas: %s", repetidas)
+    else:
+        log.debug("chaves repetidas: 0")
     return df.drop_duplicates(subset=chave)
 
 
@@ -72,10 +75,10 @@ def preparar(prefixo, coluna):
 
 
 def salvar(df):
-    PRATA.mkdir(parents=True, exist_ok=True)
-    destino = PRATA / "determinantes_socioeconomicos.parquet"
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    destino = config.PRATA / "determinantes_socioeconomicos.parquet"
     df.to_parquet(destino, index=False)
-    print("salvo em:", destino, df.shape)
+    log.info("salvo em: %s, %s", destino.name, df.shape)
     return destino
 
 
@@ -88,8 +91,8 @@ def registrar(destino, antes, depois, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    PRATA.mkdir(parents=True, exist_ok=True)
-    with (PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
+    config.PRATA.mkdir(parents=True, exist_ok=True)
+    with (config.PRATA / "proveniencia.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
 
 
@@ -104,16 +107,15 @@ def main():
         else:
             # outer, e nao left: as duas series nao cobrem os mesmos pares de
             # pais e ano. Com left pelo PIB, as linhas que so tem escolaridade
-            # sumiriam sem aviso. O numero e impresso logo abaixo e fica
-            # registrado no README.
+            # sumiriam sem aviso. O numero fica no log e no README.
             df = df.merge(parte, on=["pais_id", "ano"], how="outer",
                           validate="one_to_one")
             so_escolaridade = (df["pib_per_capita_usd"].isna()
                                & df["escolaridade_anos"].notna())
-            print("linhas so com escolaridade (motivo do outer):",
-                  int(so_escolaridade.sum()))
+            log.info("linhas so com escolaridade (motivo do outer): %s",
+                     int(so_escolaridade.sum()))
 
-    df = limpeza.cruzar_com_paises(df, PRATA, ["pais_nome", "regiao", "nivel_renda"])
+    df = limpeza.cruzar_com_paises(df, ["pais_nome", "regiao", "nivel_renda"])
     df = limpeza.remover_vazias(df, ["pib_per_capita_usd", "escolaridade_anos"])
     df = limpeza.faixa_por_quartil(df, "escolaridade_anos", FAIXA_ESCOLARIDADE)
 
@@ -130,4 +132,5 @@ def main():
 
 
 if __name__ == "__main__":
+    config.configurar_log()
     main()
