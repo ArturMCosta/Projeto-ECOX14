@@ -2,4 +2,5 @@ pandas
 requests
 pyarrow
 fg-data-profiling
+duckdb
 setuptools<82
