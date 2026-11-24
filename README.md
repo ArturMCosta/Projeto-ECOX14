@@ -107,7 +107,7 @@ Alertas da seção **Alerts** de cada relatório, e a correção aplicada.
 
 | Alerta | Correção |
 |---|---|
-| `unit` e `obs_status` 100% vazias | removidas depois de contadas |
+| `unit` e `obs_status` como texto vazio em todas as linhas | removidas: o teste olha nulo e string vazia |
 | `indicator.id`, `indicator.value`, `decimal` constantes | informação repetida nas 5.054 e 5.168 linhas, não guardada |
 | `value` com 144 ausentes (2,9%) no PIB | mantidos |
 | `value` com **2.214 ausentes (42,8%)** na escolaridade | motivo do recorte ir só até 2018 |

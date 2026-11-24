@@ -37,8 +37,18 @@ def carregar(prefixo):
 
 
 def tirar_colunas_vazias(df):
-    vazias = [c for c in COLUNAS_VAZIAS if df[c].isna().all()]
-    log.info("colunas 100%% vazias: %s", vazias)
+    """Remove a coluna que nao tem nenhum valor util.
+
+    O Banco Mundial manda campo vazio como texto vazio (''), nao como nulo.
+    Testar so isna() nao acharia nada: o log diria que nao ha coluna vazia
+    enquanto elas so sairiam depois, na selecao de colunas do fim.
+    """
+    vazias = []
+    for coluna in COLUNAS_VAZIAS:
+        texto = df[coluna].astype("string").str.strip().fillna("")
+        if texto.eq("").all():
+            vazias.append(coluna)
+    log.info("colunas sem nenhum valor: %s", vazias or "nenhuma")
     return df.drop(columns=vazias)
 
 
