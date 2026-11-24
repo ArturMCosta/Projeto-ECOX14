@@ -1,4 +1,4 @@
-# Life Expectancy — bronze e prata
+# Life Expectancy — bronze, prata e ouro
 
 **Pergunta norteadora:** por que alguns países vivem mais que outros — quanto
 o nível de renda, a escolaridade e o gasto em saúde explicam da expectativa
@@ -17,7 +17,7 @@ python src/pipeline.py
 | `ingestao` | baixa os pacotes: 3 indicadores da OMS e 3 do Banco Mundial |
 | `transformacao` | gera as 4 tabelas da prata |
 | `enriquecimento` | gera `indicadores_enriquecidos.parquet` |
-| `carga` | ainda não implementada |
+| `carga` | cria o banco Ouro: dimensão, duas fatos e a view |
 | `modelagem` | ainda não implementada |
 
 Retomar de uma etapa, sem refazer as anteriores:
@@ -31,8 +31,9 @@ novo e demora. Bater na API sem necessidade não é só lento — é sobrecarreg
 um serviço público e gratuito.
 
 As etapas que faltam aparecem como `None` no `ETAPAS` do `pipeline.py`: o
-pipeline **declara o que ainda não tem**, em vez de esconder. Trocar um `None`
-por uma função é a tarefa das próximas aulas.
+pipeline **declara o que ainda não tem**, em vez de esconder. Hoje só a
+`modelagem` está nessa situação; trocar um `None` por uma função é a tarefa
+da próxima aula.
 
 **Isto não é um orquestrador.** Não agenda, não repete quando falha, não avisa
 ninguém, não roda etapas em paralelo. É um ponto de entrada que roda na ordem
@@ -246,6 +247,124 @@ colunas de dinheiro se repetem nas três linhas de sexo do mesmo país e ano.
 A segunda está certa. A primeira é **2,58 vezes** maior porque soma cada país
 três vezes — e a soma é uma operação perfeitamente válida, então nada avisa.
 Para dinheiro, use `gasto_saude.parquet` ou `determinantes_socioeconomicos.parquet`.
+
+
+## Modelagem e carga: a camada Ouro
+
+A camada deixa de ser pasta e vira esquema dentro de um banco. O banco é o
+DuckDB: uma biblioteca, não um servidor — sem senha, sem porta, e o banco
+inteiro é um arquivo em `dados/ouro/projeto.duckdb`, ignorado pelo Git. A
+Prata entra como está, via `read_parquet`; a Ouro nasce dentro do banco,
+escrita em SQL.
+
+### A frase do grão
+
+> **Uma linha de `fato_expectativa` é um país em um ano e um sexo.**
+>
+> **Uma linha de `fato_contexto` é um país em um ano.**
+
+A primeira frase decide três coisas: a chave primária é `(pais_id, ano, sexo)`
+e não `(pais_id, ano)`; somar entre anos do mesmo país não faz sentido; e
+duplicata é o mesmo país, no mesmo ano, no mesmo sexo, duas vezes.
+
+A conferência do material — agrupar a fato por país e ano e esperar zero
+repetidos — devolveria **3.515** linhas aqui. Não é erro de dado: é a
+conferência perguntando o grão errado. 185 países × 19 anos × 3 sexos =
+**10.545**, exatamente as linhas da fato.
+
+### O desenho
+
+| Objeto | Tipo | Uma linha é | Linhas |
+|---|---|---|---:|
+| `ouro.dim_pais` | dimensão | um país | 217 |
+| `ouro.fato_expectativa` | fato | um país, um ano, um sexo | 10.545 |
+| `ouro.fato_contexto` | fato | um país, um ano | 4.023 |
+| `ouro.vw_indicador_completo` | view | um país, um ano, um sexo | 10.545 |
+
+**`dim_pais`** — `pais_id`, `nome`, `regiao_oms`, `regiao`, `nivel_renda`,
+`capital`, `longitude`, `latitude`. A região da OMS não está em
+`prata.paises`: entra por `DISTINCT` sobre a série, e é 1:1 com o país, então
+uma agregação simples resolve. `nome` é o `pais_nome` da prata; o vocabulário
+de origem (`region.value`, `incomeLevel.value`) já tinha ficado para trás na
+Aula 05.
+
+**`fato_expectativa`** — `pais_id`, `ano`, `sexo`, `expectativa_vida`,
+`ic_baixo`, `ic_alto`, `variacao_pct`, `expectativa_vida_faixa`,
+`dif_mediana_regiao`.
+
+**`fato_contexto`** — `pais_id`, `ano`, `gasto_saude_pct_pib`,
+`gasto_saude_per_capita_usd`, `pib_per_capita_usd`, `escolaridade_anos`,
+`escolaridade_anos_faixa`.
+
+### Por que duas fatos, e não uma
+
+A tabela enriquecida mistura dois grãos. `expectativa_vida`, `ic_baixo`,
+`ic_alto`, `variacao_pct`, `dif_mediana_regiao` e `expectativa_vida_faixa`
+existem por país, ano e sexo. `gasto_saude_pct_pib`,
+`gasto_saude_per_capita_usd`, `pib_per_capita_usd` e `escolaridade_anos`
+existem por país e ano — nenhum par país-ano tem mais de um valor de gasto.
+
+Numa fato só, a armadilha do grão deixaria de ser um aviso e viraria
+estrutura: todo `SUM()` de dinheiro contaria cada país três vezes. Com duas
+fatos, cada medida mora no seu grão, e a view remonta a tabela achatada quando
+alguém precisar dela.
+
+`fato_contexto` é um `FULL OUTER JOIN` entre gasto e determinantes, e não
+`LEFT`: 446 pares país-ano têm só PIB e escolaridade, e 7 têm só gasto.
+
+### O que a carga descarta
+
+| Tabela | Linhas fora da fato | Por quê |
+|---|---:|---|
+| `gasto_saude` | 38 | Cook Islands e Niue não têm cadastro de país |
+| `determinantes` | 0 | todos os países têm cadastro |
+
+O `WHERE` de integridade é o mesmo do material: fica na fato só o que tem
+dimensão. Aqui ele custa 38 linhas, e o log avisa. Por isso a soma de
+`gasto_saude_per_capita_usd` na fato não fecha com a prata: em 2018 são
+US$ 229.185 contra US$ 231.161, e a diferença de US$ 1.976 são exatamente os
+dois países.
+
+### A view é a tabela achatada, sem arquivo para manter
+
+`vw_indicador_completo` junta as duas fatos à dimensão e devolve as mesmas 17
+colunas e as mesmas 10.545 linhas da tabela enriquecida. A conferência é um
+`EXCEPT` nos dois sentidos entre a view e o Parquet: **zero linhas de
+diferença**. Corrigir a região de um país é uma linha em `dim_pais`, e a view
+já sai certa para todo mundo.
+
+### As provas
+
+| Prova | Resultado |
+|---|---:|
+| grão de `fato_expectativa` repetido | 0 |
+| grão de `fato_contexto` repetido | 0 |
+| fatos órfãos (`fato_expectativa` / `fato_contexto`) | 0 / 0 |
+| `dim_pais`: linhas / países distintos | 217 / 217 |
+| view contra o Parquet | 0 diferenças |
+
+Qualquer uma diferente de zero levanta erro, e o pipeline para.
+
+### A pergunta, em SQL
+
+```sql
+SELECT d.nivel_renda, ROUND(AVG(f.expectativa_vida), 1) AS media
+FROM ouro.fato_expectativa f
+JOIN ouro.dim_pais d USING (pais_id)
+WHERE f.ano = 2018 AND f.sexo = 'total'
+GROUP BY 1
+ORDER BY media DESC;
+```
+
+| Nível de renda | Expectativa média em 2018 | Países |
+|---|---:|---:|
+| High income | 79,4 | 58 |
+| Upper middle income | 73,8 | 55 |
+| Lower middle income | 67,9 | 47 |
+| Low income | 62,8 | 25 |
+
+O `GROUP BY` muda o grão, como o `pct_change` mudou na prata: a fato tinha uma
+linha por país, ano e sexo, e a consulta devolve uma linha por nível de renda.
 
 
 ## O que é herdado e o que é criado
