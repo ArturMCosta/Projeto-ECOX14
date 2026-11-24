@@ -23,8 +23,10 @@ nao quer refazer a primeira.
 """
 
 import logging
+import shutil
 import sys
 import time
+from pathlib import Path
 
 import config
 
@@ -64,12 +66,42 @@ def etapa_carga():
     carga.main()
 
 
+def comando_dbt():
+    """Acha o executavel do dbt.
+
+    No Windows ele fica em Scripts\\, ao lado do python.exe, e nem sempre
+    esta no PATH -- e o caso do "dbt nao e reconhecido como comando".
+    """
+    caminho = shutil.which("dbt")
+    if caminho:
+        return caminho
+    candidato = Path(sys.executable).parent / "Scripts" / "dbt.exe"
+    if candidato.exists():
+        return str(candidato)
+    raise FileNotFoundError(
+        "dbt nao encontrado. Instale com: pip install dbt-core dbt-duckdb")
+
+
+def etapa_modelagem():
+    import subprocess
+
+    import carga
+
+    # check=True: se o dbt falhar, o Python levanta erro. Sem isso o pipeline
+    # diria que terminou bem com a Ouro quebrada.
+    subprocess.run([comando_dbt(), "run"],
+                   cwd=config.RAIZ / "ecox14", check=True)
+
+    # O dbt constroi; as provas da aula passada continuam valendo.
+    carga.verificar_banco()
+
+
 ETAPAS = [
     ("ingestao", etapa_ingestao),
     ("transformacao", etapa_transformacao),
     ("enriquecimento", etapa_enriquecimento),
     ("carga", etapa_carga),
-    ("modelagem", None),    # proxima aula: dbt
+    ("modelagem", etapa_modelagem),
 ]
 
 

@@ -3,4 +3,6 @@ requests
 pyarrow
 fg-data-profiling
 duckdb
+dbt-core
+dbt-duckdb
 setuptools<82

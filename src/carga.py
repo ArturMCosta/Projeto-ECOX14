@@ -1,33 +1,22 @@
-"""Modela e carrega a camada Ouro num banco DuckDB.
+"""Carrega a Prata num banco DuckDB e confere o modelo construido pelo dbt.
 
-O QUE MUDA AQUI
-===============
-Ate a Aula 08, camada era pasta: dados/prata/*.parquet. Agora a Prata entra
-no banco como esta -- read_parquet, sem importar nada -- e a Ouro nasce
-dentro dele, escrita em SQL: dimensao, fatos e uma view.
-
-DUAS FATOS, E NAO UMA
+O QUE ESTE SCRIPT FAZ
 =====================
-A tabela enriquecida mistura dois graos. A expectativa de vida existe por
-pais, ano e sexo. O gasto, o PIB e a escolaridade existem por pais e ano,
-e aparecem repetidos nas tres linhas de sexo.
+abre o banco, cria os esquemas prata e ouro, e copia os Parquet da prata
+para dentro dele com read_parquet. Nada mais.
 
-Numa fato so, o modelo nasceria com a armadilha do grao embutida: qualquer
-SUM() de dinheiro contaria cada pais tres vezes. Por isso sao duas:
+A Ouro NAO NASCE AQUI
+=====================
+Ela nasceu aqui ate a Aula 09, com CREATE TABLE dentro de strings do Python.
+Na Aula 10 o SQL virou um arquivo por tabela em ecox14/models/, e quem
+executa e o dbt. O construir_ouro() fica abaixo, comentado, para comparar
+as duas formas.
 
-    fato_expectativa   grao (pais_id, ano, sexo)   10.545 linhas
-    fato_contexto      grao (pais_id, ano)          4.023 linhas
-
-A view vw_indicador_completo remonta a tabela achatada juntando as duas a
-dimensao. Ela nao guarda dado: e uma consulta com nome.
-
-A FRASE DO GRAO
-===============
-    Uma linha de fato_expectativa e um pais em um ano e um sexo.
-    Uma linha de fato_contexto e um pais em um ano.
-
-As duas estao no README, escritas antes do CREATE TABLE. Delas decorrem a
-chave primaria, o que pode ser somado e o que e duplicata.
+O QUE SOBRA PARA ESTE MODULO
+============================
+conferir(): as mesmas provas da aula passada. Ela e chamada depois do dbt,
+pela etapa modelagem, porque num banco novo a Ouro ainda nao existe quando
+a carga termina.
 """
 
 import logging
@@ -92,9 +81,11 @@ def carregar_prata(con):
 
 
 def construir_ouro(con):
-    """Cria a dimensao, as duas fatos e a view.
+    """Aposentada na Aula 10: quem constroi a Ouro agora e o dbt.
 
-    Nomes de negocio: a Ouro e a camada que vai ser consultada por gente.
+    O codigo fica aqui para comparar as duas formas -- e para mostrar o que
+    o dbt faz por baixo: exatamente estes CREATE TABLE, com a ordem que
+    antes so existia na cabeca de quem escreveu.
     """
     con.execute("""
         CREATE OR REPLACE TABLE ouro.dim_pais AS
@@ -267,13 +258,25 @@ def conferir(con):
         raise ValueError(f"a view nao remonta o parquet: {diferencas} linhas")
 
 
+def verificar_banco():
+    """Confere o modelo depois que o dbt criou a Ouro.
+
+    A conferencia saiu do main porque, num banco novo, a Ouro ainda nao
+    existe quando a carga termina: quem cria e a etapa seguinte.
+    """
+    con = conectar()
+    try:
+        conferir(con)
+    finally:
+        con.close()
+
+
 def main():
     con = conectar()
     try:
         criar_esquemas(con)
         carregar_prata(con)
-        construir_ouro(con)
-        conferir(con)
+        # construir_ouro(con)   <- agora e o dbt
     finally:
         con.close()
     log.info("carga concluida")

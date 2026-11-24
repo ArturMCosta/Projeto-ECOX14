@@ -31,3 +31,8 @@ apresentacao.pptx
 
 # Registro de execucao: gerado pelo pipeline
 pipeline.log
+
+# dbt: artefatos de execucao, gerados a cada run
+ecox14/target/
+ecox14/logs/
+ecox14/dbt_packages/

@@ -18,7 +18,7 @@ python src/pipeline.py
 | `transformacao` | gera as 4 tabelas da prata |
 | `enriquecimento` | gera `indicadores_enriquecidos.parquet` |
 | `carga` | cria o banco Ouro: dimensão, duas fatos e a view |
-| `modelagem` | ainda não implementada |
+| `modelagem` | roda o dbt: os quatro modelos da Ouro, na ordem do grafo |
 
 Retomar de uma etapa, sem refazer as anteriores:
 
@@ -31,9 +31,8 @@ novo e demora. Bater na API sem necessidade não é só lento — é sobrecarreg
 um serviço público e gratuito.
 
 As etapas que faltam aparecem como `None` no `ETAPAS` do `pipeline.py`: o
-pipeline **declara o que ainda não tem**, em vez de esconder. Hoje só a
-`modelagem` está nessa situação; trocar um `None` por uma função é a tarefa
-da próxima aula.
+pipeline **declara o que ainda não tem**, em vez de esconder. Hoje não sobrou
+nenhum: as cinco etapas são funções.
 
 **Isto não é um orquestrador.** Não agenda, não repete quando falha, não avisa
 ninguém, não roda etapas em paralelo. É um ponto de entrada que roda na ordem
@@ -255,7 +254,7 @@ A camada deixa de ser pasta e vira esquema dentro de um banco. O banco é o
 DuckDB: uma biblioteca, não um servidor — sem senha, sem porta, e o banco
 inteiro é um arquivo em `dados/ouro/projeto.duckdb`, ignorado pelo Git. A
 Prata entra como está, via `read_parquet`; a Ouro nasce dentro do banco,
-escrita em SQL.
+escrita em SQL — desde a Aula 10, pelo dbt.
 
 ### A frase do grão
 
@@ -365,6 +364,97 @@ ORDER BY media DESC;
 
 O `GROUP BY` muda o grão, como o `pct_change` mudou na prata: a fato tinha uma
 linha por país, ano e sexo, e a consulta devolve uma linha por nível de renda.
+
+
+## Construção da Ouro com dbt
+
+Na Aula 09 a Ouro era construída por `construir_ouro()`, com `CREATE TABLE`
+dentro de strings do Python. Na Aula 10 esse SQL saiu de dentro do código e
+virou **um arquivo por tabela**, em `ecox14/models/`. Quem executa é o dbt.
+
+| O que doía no SQL dentro do Python | O que o dbt faz |
+|---|---|
+| nenhum editor conferia a sintaxe | o modelo é um `.sql` que o editor entende |
+| a ordem `dim` antes das fatos só existia no código | ele deduz a ordem pelas referências |
+| refazer uma tabela era rodar tudo | `dbt run --select dim_pais+` roda o pedaço |
+| a documentação era comentário solto | ela é gerada do próprio código |
+
+### O que fica em cada lugar
+
+| Arquivo | O que é |
+|---|---|
+| `ecox14/dbt_project.yml` | nome, pastas e a materialização padrão (`table`) |
+| `ecox14/models/sources.yml` | as 5 tabelas da prata: onde o grafo começa |
+| `ecox14/models/dim_pais.sql` | a dimensão |
+| `ecox14/models/fato_expectativa.sql` | o fato do grão país + ano + sexo |
+| `ecox14/models/fato_contexto.sql` | o fato do grão país + ano |
+| `ecox14/models/vw_indicador_completo.sql` | a view que remonta a achatada |
+| `~/.dbt/profiles.yml` | como conectar no banco (fora do repositório) |
+
+`source()` aponta para tabela que o dbt **não** fez; `ref()` aponta para outro
+modelo seu e é o que cria a seta do grafo. As duas fatos usam
+`ref('dim_pais')` no filtro de integridade, então o dbt sabe que a dimensão
+vem antes — sem ninguém escrever a ordem.
+
+### Tabela ou view
+
+Dimensão e fatos são **tabelas**; só a achatada é **view**. A regra geral fica
+no `dbt_project.yml` e a exceção no próprio arquivo:
+
+```sql
+{{ config(materialized='view') }}
+```
+
+Trocar de um para o outro é mudar uma palavra. Vale saber: o dbt 1.12
+materializa **view** por padrão, e foi preciso declarar `table` para a
+dimensão e as fatos continuarem como na Aula 09.
+
+### O que mudou no pipeline
+
+`carga.main()` não constrói mais a Ouro: abre o banco, cria os esquemas e
+copia a prata. A etapa `modelagem` roda `dbt run` e depois chama
+`carga.verificar_banco()` — as mesmas provas da Aula 09.
+
+A ordem importa. Num banco novo, a Ouro não existe quando a carga termina;
+por isso a conferência saiu de `carga.main()` e passou para depois do dbt. Do
+contrário, o primeiro `python src/pipeline.py` num clone limpo falharia ao
+conferir tabelas que ainda não tinham sido criadas — e a mensagem apontaria
+para o lugar errado.
+
+Se o dbt falhar, `check=True` levanta erro e o pipeline para. Sem ele, o
+Python diria "concluído" com a Ouro quebrada.
+
+### Como rodar
+
+```bash
+python src/pipeline.py              # tudo, da API à Ouro
+python src/pipeline.py modelagem    # só o dbt e as provas
+```
+
+Dentro de `ecox14/`:
+
+```bash
+dbt run                     # os quatro modelos, na ordem do grafo
+dbt run --select dim_pais+  # a dimensão e tudo que depende dela
+dbt debug                   # mostra o perfil e testa a conexão
+```
+
+O `dbt` não está no `PATH` nesta máquina; o `pipeline.py` procura o
+executável em `Scripts\`, ao lado do `python.exe`.
+
+### A migração não mudou o resultado
+
+| Objeto | Aula 09 (Python) | Aula 10 (dbt) |
+|---|---:|---:|
+| `dim_pais` | 217 | 217 |
+| `fato_expectativa` | 10.545 | 10.545 |
+| `fato_contexto` | 4.023 | 4.023 |
+| `vw_indicador_completo` | 10.545 | 10.545 |
+| view contra o Parquet | 0 diferenças | 0 diferenças |
+
+O teste foi feito com o banco apagado: `carga` recriou o `projeto.duckdb`, o
+dbt construiu os quatro modelos e as provas passaram. Trocar a ferramenta sem
+mudar o resultado é o objetivo de uma migração.
 
 
 ## O que é herdado e o que é criado

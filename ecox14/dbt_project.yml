@@ -1,0 +1,22 @@
+# Projeto dbt da camada Ouro.
+#
+# O nome do perfil aqui precisa ser igual ao nome no topo do profiles.yml,
+# que fica em C:\Users\SEU_USUARIO\.dbt\profiles.yml.
+name: 'ecox14'
+version: '1.0.0'
+config-version: 2
+
+profile: 'ecox14'
+
+model-paths: ["models"]
+
+# Dimensao e fatos nascem como tabela: sao consultados muitas vezes e nao
+# devem reexecutar a consulta a cada leitura. A view abre a excecao no
+# proprio arquivo, com config(materialized='view').
+models:
+  ecox14:
+    +materialized: table
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
