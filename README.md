@@ -6,6 +6,28 @@ de vida?
 
 ## Como rodar
 
+O projeto roda **dentro do `.venv`**. Na primeira vez:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Em cada terminal novo, ative o venv antes de rodar qualquer comando:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+O prompt passa a mostrar `(.venv)`, e é de lá que vêm o `dbt`, o `duckdb` e o
+`streamlit` — o projeto não é feito para rodar fora dele. Se o PowerShell
+recusar o script por política de execução:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 Um comando, de qualquer pasta:
 
 ```bash
@@ -450,8 +472,8 @@ dbt run --select dim_pais+  # a dimensão e tudo que depende dela
 dbt debug                   # mostra o perfil e testa a conexão
 ```
 
-O `dbt` não está no `PATH` nesta máquina; o `pipeline.py` procura o
-executável em `Scripts\`, ao lado do `python.exe`.
+O `dbt` está instalado no `.venv`, não na instalação global — com o venv
+ativado ele fica no `PATH`. Os comandos deste README supõem a ativação.
 
 ### A migração não mudou o resultado
 
@@ -553,7 +575,6 @@ pipeline. Ele lê a Ouro e não escreve nada.
 | `dashboard/painel.py` | só a tela, sem SQL |
 
 ```bash
-pip install streamlit   # já está no requirements.txt
 streamlit run dashboard/painel.py
 ```
 
