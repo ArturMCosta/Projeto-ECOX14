@@ -720,10 +720,17 @@ detalhamento está na seção de enriquecimento.
 
 ## A pergunta responde?
 
+A pergunta tem duas partes: por que alguns países vivem mais que outros, e
+quanto renda, escolaridade e gasto em saúde explicam. A primeira os dados
+descrevem; a segunda exige um modelo. Tudo abaixo usa o recorte de sexo
+**total** — usar os três contaria cada país três vezes.
+
+### O gradiente de renda
+
 Expectativa de vida média por nível de renda:
 
 | Nível de renda | 2000 | 2018 | Ganho |
-|---|---|---|---|
+|---|---:|---:|---:|
 | Low income | 53,2 | 62,6 | **+9,4** |
 | Lower middle income | 61,0 | 67,9 | +6,9 |
 | Upper middle income | 69,6 | 73,8 | +4,2 |
@@ -733,4 +740,83 @@ A ordem só aparece porque a categoria de renda foi declarada **ordenada**.
 
 O padrão do **ganho** é o achado: quanto mais baixa a renda, maior foi o
 avanço. A distância entre os extremos era de 22,5 anos e é de 16,8. O PIB
-multiplica por 55 entre os extremos, mas a expectativa de vida ganha 17 anos.
+multiplica por 55 entre os extremos, mas a expectativa de vida ganha 17 anos —
+a relação é logarítmica, não linear.
+
+### Quanto cada fator explica
+
+Método: mínimos quadrados sobre a tabela enriquecida, com o PIB per capita em
+escala log (cada 10 vezes de renda é uma unidade), erro-padrão agrupado por
+país e, no painel, efeito fixo de ano. O modelo é leitura da Ouro, não etapa
+do pipeline. A escolaridade limita a amostra: 92 países têm o dado em 2018 na
+prata, 87 entre os 185 com expectativa de vida, e 86 têm os três dados.
+
+**Entre países, em 2018.**
+
+| Modelo | Países | R² |
+|---|---:|---:|
+| Renda | 182 | 0,690 |
+| Renda, só os casos completos | 86 | 0,767 |
+| Renda + escolaridade | 86 | 0,784 |
+| Renda + escolaridade + gasto (% do PIB) | 86 | 0,785 |
+
+**No painel, 2000 a 2018** — 1.922 pares país-ano, de 169 países:
+
+| Modelo | R² |
+|---|---:|
+| Renda | 0,704 |
+| Renda + escolaridade | 0,736 |
+| Renda + escolaridade + gasto (% do PIB) | 0,736 |
+
+**Dentro do país** — os mesmos 1.922 pares, com efeito fixo de país e de ano,
+o que usa só a variação de cada país contra ele mesmo:
+
+| Modelo | R² |
+|---|---:|
+| Renda | 0,608 |
+| Renda + escolaridade | 0,629 |
+| Renda + escolaridade + gasto (% do PIB) | 0,629 |
+
+Coeficientes do modelo completo:
+
+| Variável | Entre países (2018) | Painel com ano | Dentro do país |
+|---|---:|---:|---:|
+| PIB per capita, por 10× | +6,2 anos | +6,4 anos | +2,3 anos |
+| Escolaridade, por ano | +0,40 | +0,85 | +0,42 |
+| Gasto saúde, por ponto do PIB | +0,07 (n.s.) | 0,00 (n.s.) | −0,04 (n.s.) |
+
+n.s. = não significativo a 5%.
+
+### O que os números dizem
+
+- **A renda explica a maior parte.** Sozinha, 69% da diferença entre países em
+  2018, 70% no painel e 61% da variação dentro do país ao longo do tempo. Com
+  os controles, dez vezes mais renda vale 6,2 anos entre países e 2,3 dentro
+  do país.
+- **A escolaridade acrescenta pouco, mas acrescenta.** Leva o R² de 0,767 para
+  0,784 em 2018, de 0,704 para 0,736 no painel e de 0,608 para 0,629 dentro do
+  país. O coeficiente fica entre 0,4 e 0,85 ano por ano de escolaridade.
+- **O gasto em saúde não acrescenta nada depois dos outros dois.** A
+  correlação bruta com a expectativa de vida é 0,40, mas o coeficiente vai a
+  zero — ou fica levemente negativo, sem significância — quando renda e
+  escolaridade entram. Gasto per capita dá o mesmo resultado, e é quase
+  colinear com o PIB (r ≈ 0,9): este dado não separa os dois.
+- **Entre e dentro são respostas diferentes.** Um país dez vezes mais rico tem
+  6,2 anos a mais que outro; um país que ficou dez vezes mais rico no período
+  ganha 2,3. O resto da vantagem dos ricos não é renda: é o que o efeito fixo
+  de país captura — história, sistema de saúde, ambiente — e este dado não
+  abre essa caixa.
+
+### O que o dado não permite dizer
+
+- **Associação, não causalidade.** Renda, escolaridade e gasto andam juntos; o
+  modelo mede o quanto a variação de um acompanha a do outro, não o efeito de
+  mudar um deles.
+- **Médias de país, não pessoas.** Nada aqui diz sobre um indivíduo: a relação
+  entre países pode não valer dentro deles.
+- **O painel é desbalanceado.** São 1.922 dos 3.515 pares possíveis; só 33 dos
+  169 países têm os 19 anos completos. Quem entra é quem tem escolaridade
+  medida, e isso não é aleatório.
+- **A escolaridade acaba em 2019 e cai no fim do recorte:** 107 países em
+  2002, 92 em 2018 na prata e 87 entre os 185 com expectativa de vida. Por
+  isso o modelo de 2018 usa 86 países, e não 185.
