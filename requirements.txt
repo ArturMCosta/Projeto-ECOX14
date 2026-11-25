@@ -5,4 +5,5 @@ fg-data-profiling
 duckdb
 dbt-core
 dbt-duckdb
+streamlit
 setuptools<82

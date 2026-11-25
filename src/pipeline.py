@@ -92,7 +92,13 @@ def etapa_modelagem():
     subprocess.run([comando_dbt(), "run"],
                    cwd=config.RAIZ / "ecox14", check=True)
 
-    # O dbt constroi; as provas da aula passada continuam valendo.
+    # As regras do schema.yml e de tests/ rodam aqui. Teste que depende de
+    # alguem lembrar de rodar nao protege nada: quem roda e o pipeline.
+    subprocess.run([comando_dbt(), "test"],
+                   cwd=config.RAIZ / "ecox14", check=True)
+
+    # O dbt constroi e prova o que declaramos; as provas que ele nao cobre
+    # (contagens e a view contra o Parquet) continuam no carga.py.
     carga.verificar_banco()
 
 

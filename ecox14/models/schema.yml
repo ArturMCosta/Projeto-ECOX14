@@ -1,0 +1,164 @@
+# As regras que o dbt passa a cobrar sozinho.
+#
+# Teste pronto: declara-se o que a coluna precisa ser, e o dbt escreve a
+# consulta. Teste proprio: um .sql em tests/, que passa quando devolve zero
+# linhas.
+#
+# A descricao escrita aqui e a mesma que aparece no `dbt docs generate`: o
+# site e o teste saem deste arquivo, ao lado do modelo. Nao existe versao
+# paralela para ficar desatualizada.
+#
+# A view nao tem teste proprio de proposito: ela e um join de tabelas que ja
+# sao testadas aqui, e a prova de que remonta a tabela achatada linha por
+# linha continua em carga.conferir(), porque compara com o Parquet.
+
+version: 2
+
+models:
+
+  - name: dim_pais
+    description: >
+      Cadastro de paises, uma linha por pais. Origem: prata.paises, vinda do
+      Banco Mundial, com a regiao da OMS trazida da serie da OMS.
+    columns:
+
+      - name: pais_id
+        description: Codigo ISO3 do pais. Chave da dimensao.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: nome
+        description: Nome do pais, em ingles, como a fonte entrega.
+        data_tests:
+          - not_null
+
+      - name: regiao_oms
+        description: >
+          Regiao da OMS (Africa, Americas, Eastern Mediterranean, Europe,
+          South-East Asia, Western Pacific). Fica ausente para os paises que
+          nao estao na serie da OMS.
+
+      - name: regiao
+        description: >
+          Regiao geografica definida pelo Banco Mundial. Os agregados
+          regionais ja foram removidos na camada prata.
+
+      - name: nivel_renda
+        description: >
+          Faixa de renda, em escala ordenada: Low income, Lower middle
+          income, Upper middle income, High income.
+
+      - name: capital
+        description: Capital do pais. Ausente quando a fonte nao informa.
+
+      - name: longitude
+        description: Longitude da capital, em graus.
+
+      - name: latitude
+        description: Latitude da capital, em graus.
+
+  - name: fato_expectativa
+    description: >
+      Expectativa de vida por pais, ano e sexo: uma linha por pais-ano-sexo.
+      So entram paises que existem em dim_pais, porque o filtro de
+      integridade usa a dimensao.
+    columns:
+
+      - name: pais_id
+        description: Codigo ISO3 do pais. Aponta para dim_pais.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_pais')
+                field: pais_id
+
+      - name: ano
+        description: Ano da medicao, inteiro. Nao e data.
+        data_tests:
+          - not_null
+
+      - name: sexo
+        description: Recorte da serie, em portugues.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['feminino', 'masculino', 'total']
+
+      - name: expectativa_vida
+        description: Expectativa de vida ao nascer, em anos.
+        data_tests:
+          - not_null
+
+      - name: ic_baixo
+        description: Limite inferior do intervalo de confianca da estimativa.
+
+      - name: ic_alto
+        description: Limite superior do intervalo de confianca da estimativa.
+
+      - name: variacao_pct
+        description: >
+          Variacao percentual em relacao ao ano anterior do mesmo pais e
+          sexo. Ausente no primeiro ano de cada serie, por definicao: nao
+          existe anterior com que comparar.
+
+      - name: expectativa_vida_faixa
+        description: >
+          Faixa de expectativa de vida, calculada na camada prata.
+
+      - name: dif_mediana_regiao
+        description: >
+          Diferenca, em anos, entre o pais e a mediana da sua regiao do
+          Banco Mundial, no mesmo ano e sexo.
+
+  - name: fato_contexto
+    description: >
+      Gasto em saude e determinantes socioeconomicos por pais e ano: uma
+      linha por pais-ano. E FULL OUTER JOIN porque nem todo par tem as duas
+      fontes: 446 pares so tem PIB e escolaridade, e 7 so tem gasto.
+    columns:
+
+      - name: pais_id
+        description: Codigo ISO3 do pais. Aponta para dim_pais.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_pais')
+                field: pais_id
+
+      - name: ano
+        description: Ano da medicao, inteiro. Nao e data.
+        data_tests:
+          - not_null
+
+      - name: gasto_saude_pct_pib
+        description: >
+          Gasto em saude como percentual do PIB. Nulo quando o par pais-ano
+          so tem PIB e escolaridade.
+
+      - name: gasto_saude_per_capita_usd
+        description: >
+          Gasto em saude por habitante, em dolares. Nulo quando o par
+          pais-ano so tem PIB e escolaridade.
+
+      - name: pib_per_capita_usd
+        description: >
+          PIB por habitante, em dolares. Nulo quando o par pais-ano so tem
+          gasto em saude.
+
+      - name: escolaridade_anos
+        description: >
+          Anos medios de escolaridade. Nulo quando o par pais-ano so tem
+          gasto em saude.
+
+      - name: escolaridade_anos_faixa
+        description: Faixa de escolaridade, calculada na camada prata.
+
+  - name: vw_indicador_completo
+    description: >
+      Fato e dimensao ja juntas, para quem vai consultar. Reproduz as 17
+      colunas e as 10.545 linhas da tabela achatada construida na aula de
+      enriquecimento, agora sem arquivo para manter.

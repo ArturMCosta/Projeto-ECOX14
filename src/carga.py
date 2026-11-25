@@ -197,47 +197,17 @@ def construir_ouro(con):
 
 
 def conferir(con):
-    """Quatro provas. Todas precisam dar zero, ou o modelo esta errado."""
-    graos = {
-        "fato_expectativa (pais, ano, sexo)":
-            """SELECT COUNT(*) FROM (
-                   SELECT pais_id, ano, sexo FROM ouro.fato_expectativa
-                   GROUP BY 1, 2, 3 HAVING COUNT(*) > 1)""",
-        "fato_contexto (pais, ano)":
-            """SELECT COUNT(*) FROM (
-                   SELECT pais_id, ano FROM ouro.fato_contexto
-                   GROUP BY 1, 2 HAVING COUNT(*) > 1)""",
-    }
-    for nome, sql in graos.items():
-        repetidos = um_valor(con, sql)
-        log.info("grao %s repetido: %s (esperado 0)", nome, repetidos)
-        if repetidos:
-            raise ValueError(f"grao repetido em {nome}: {repetidos}")
+    """Confere o que o dbt nao cobre.
 
-    for tabela in ("fato_expectativa", "fato_contexto"):
-        orfaos = um_valor(con, f"""
-            SELECT COUNT(*) FROM ouro.{tabela} f
-            LEFT JOIN ouro.dim_pais d USING (pais_id)
-            WHERE d.pais_id IS NULL
-        """)
-        log.info("%s sem dimensao: %s (esperado 0)", tabela, orfaos)
-        if orfaos:
-            raise ValueError(f"{orfaos} fatos orfaos em {tabela}")
-
-    linhas = um_valor(con, "SELECT COUNT(*) FROM ouro.dim_pais")
-    paises = um_valor(con, "SELECT COUNT(DISTINCT pais_id) FROM ouro.dim_pais")
-    log.info("dim_pais: %s linhas, %s paises (uma linha por pais)", linhas, paises)
-    if linhas != paises:
-        raise ValueError("dim_pais tem pais repetido")
-
-    # A dimensao nao pode perder a regiao da OMS quando um pais tiver duas.
-    ambiguos = um_valor(con, """
-        SELECT COUNT(*) FROM (
-            SELECT pais_id FROM prata.expectativa_vida
-            GROUP BY 1 HAVING COUNT(DISTINCT regiao_oms) > 1)
-    """)
-    if ambiguos:
-        raise ValueError(f"{ambiguos} paises com mais de uma regiao OMS")
+    Grao, integridade e regiao da OMS unica sairam daqui: viraram testes
+    declarados em ecox14/models/schema.yml e ecox14/tests/, que a etapa de
+    modelagem roda com `dbt test`. Ficam as contagens -- que sao numero, nao
+    regra -- e a prova que compara com o Parquet, que o dbt nao faz.
+    """
+    for tabela in ("dim_pais", "fato_expectativa", "fato_contexto",
+                   "vw_indicador_completo"):
+        log.info("ouro.%s: %s linhas", tabela,
+                 um_valor(con, f"SELECT COUNT(*) FROM ouro.{tabela}"))
 
     # A prova final: a view remonta a tabela achatada, linha por linha.
     caminho = (config.PRATA / "indicadores_enriquecidos.parquet").as_posix()

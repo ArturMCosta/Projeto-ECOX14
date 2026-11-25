@@ -18,7 +18,7 @@ python src/pipeline.py
 | `transformacao` | gera as 4 tabelas da prata |
 | `enriquecimento` | gera `indicadores_enriquecidos.parquet` |
 | `carga` | cria o banco Ouro: dimensão, duas fatos e a view |
-| `modelagem` | roda o dbt: os quatro modelos da Ouro, na ordem do grafo |
+| `modelagem` | roda o dbt: os quatro modelos da Ouro, na ordem do grafo, e os 15 testes |
 
 Retomar de uma etapa, sem refazer as anteriores:
 
@@ -39,6 +39,15 @@ ninguém, não roda etapas em paralelo. É um ponto de entrada que roda na ordem
 certa, registra o que aconteceu e para quando quebra — e saber exatamente o que
 falta aqui é o que permite decidir depois se vale adotar Airflow, Prefect ou
 Dagster.
+
+O pipeline produz; o painel e a documentação consomem, e por isso rodam à parte:
+
+```bash
+streamlit run dashboard/painel.py   # o painel, lendo a camada Ouro
+```
+
+A documentação do dbt e os detalhes de cada comando estão na seção
+**Testes, documentação e o painel**.
 
 ## Configuração e log
 
@@ -342,7 +351,9 @@ já sai certa para todo mundo.
 | `dim_pais`: linhas / países distintos | 217 / 217 |
 | view contra o Parquet | 0 diferenças |
 
-Qualquer uma diferente de zero levanta erro, e o pipeline para.
+Qualquer uma diferente de zero levanta erro, e o pipeline para. Na Aula 11
+essas provas viraram testes do dbt; a tabela continua sendo o resultado
+esperado.
 
 ### A pergunta, em SQL
 
@@ -412,8 +423,8 @@ dimensão e as fatos continuarem como na Aula 09.
 ### O que mudou no pipeline
 
 `carga.main()` não constrói mais a Ouro: abre o banco, cria os esquemas e
-copia a prata. A etapa `modelagem` roda `dbt run` e depois chama
-`carga.verificar_banco()` — as mesmas provas da Aula 09.
+copia a prata. A etapa `modelagem` roda `dbt run`, depois `dbt test` e por fim
+chama `carga.verificar_banco()` — as provas que o dbt não cobre.
 
 A ordem importa. Num banco novo, a Ouro não existe quando a carga termina;
 por isso a conferência saiu de `carga.main()` e passou para depois do dbt. Do
@@ -428,7 +439,7 @@ Python diria "concluído" com a Ouro quebrada.
 
 ```bash
 python src/pipeline.py              # tudo, da API à Ouro
-python src/pipeline.py modelagem    # só o dbt e as provas
+python src/pipeline.py modelagem    # só o dbt, os testes e as provas
 ```
 
 Dentro de `ecox14/`:
@@ -456,6 +467,121 @@ O teste foi feito com o banco apagado: `carga` recriou o `projeto.duckdb`, o
 dbt construiu os quatro modelos e as provas passaram. Trocar a ferramenta sem
 mudar o resultado é o objetivo de uma migração.
 
+## Testes, documentação e o painel
+
+Até aqui, a conferência da Ouro era um `log.info` no `carga.py`: o número
+aparecia e alguém precisava olhar. Em dado, a regra precisa estar escrita — o
+código pode estar certo e o dado chegar errado da fonte. Um teste automatizado
+é essa regra, conferida sozinha a cada execução do pipeline.
+
+O dbt aceita dois tipos. O **teste pronto** é declarado no `schema.yml` e o dbt
+escreve a consulta: `unique`, `not_null`, `relationships` e
+`accepted_values`. O **teste próprio** é um `.sql` em `ecox14/tests/`, para o
+que nenhum teste pronto cobre — no nosso caso, chave composta.
+
+A convenção é ao contrário do que parece: **o teste passa quando devolve zero
+linhas**. Ele procura o defeito, e o sucesso é não achar.
+
+### As provas manuais viraram regra
+
+| Conferência da Aula 09 (`carga.conferir`) | Onde está agora |
+|---|---|
+| grão país + ano + sexo repetido | `tests/grao_fato_expectativa.sql` |
+| grão país + ano repetido | `tests/grao_fato_contexto.sql` |
+| fato sem país na dimensão | `relationships` no `schema.yml` |
+| país repetido na dimensão | `unique` e `not_null` no `schema.yml` |
+| país em duas regiões da OMS | `tests/regiao_oms_unica.sql` |
+| view contra o Parquet | continua no `carga.conferir()` |
+
+A última não virou teste do dbt porque compara a Ouro com um arquivo de fora
+do banco; o dbt testa o que ele mesmo construiu. O `carga.conferir()` ficou só
+com essa prova e com as contagens — que são número, não regra.
+
+Ao todo são 15 testes: 3 provas próprias e 12 declaradas. `unique` não serve
+para chave composta, porque olha uma coluna só; é por isso que as duas fatos
+precisam do `GROUP BY` escrito à mão — o mesmo `GROUP BY` que a Aula 09
+imprimia no log.
+
+### Rodar e investigar
+
+A etapa `modelagem` roda `dbt run` e `dbt test` em sequência, com `check=True`:
+teste que falha interrompe o pipeline, em vez de deixar o número errado seguir
+para o painel.
+
+Dentro de `ecox14/`:
+
+```bash
+dbt test
+dbt test --select grao_fato_expectativa --store-failures
+```
+
+O segundo grava as linhas que falharam numa tabela do banco. Teste que só diz
+"falhou" não ajuda ninguém.
+
+### Documentação gerada do código
+
+As descrições de cada modelo e de cada coluna estão no `schema.yml`, ao lado do
+teste daquela coluna. O dbt gera um site a partir daí:
+
+```bash
+cd ecox14
+dbt docs generate
+dbt docs serve
+```
+
+O site mostra o grafo dos modelos, o que cada coluna significa e de onde ela
+vem. Não existe texto paralelo para ficar desatualizado: ou está certo, ou o
+código mudou junto. Os artefatos ficam em `ecox14/target/`, fora do Git.
+
+Para ver as linhas, e não só o esquema, o DuckDB tem uma interface própria:
+
+```powershell
+.\duckdb.exe -ui dados/ouro/projeto.duckdb
+```
+
+O `duckdb.exe` é programa baixado, não é código do projeto, e está no
+`.gitignore`. Feche o painel antes: o DuckDB trava o arquivo.
+
+### O painel é consumidor, não produtor
+
+`dashboard/` fica fora de `src/` de propósito: o painel não é etapa do
+pipeline. Ele lê a Ouro e não escreve nada.
+
+| Arquivo | O que é |
+|---|---|
+| `dashboard/consultas.py` | o SQL de leitura, uma função por pergunta |
+| `dashboard/painel.py` | só a tela, sem SQL |
+
+```bash
+pip install streamlit   # já está no requirements.txt
+streamlit run dashboard/painel.py
+```
+
+Abre sozinho em `localhost:8501`; para parar, `Ctrl+C`. Os filtros são as 7
+regiões do Banco Mundial, os 19 anos de 2000 a 2018 e os 3 recortes de sexo.
+
+Três decisões que estão no código:
+
+- `read_only=True` na conexão: o banco recusa escrita e o painel aberto não
+  trava o arquivo para o pipeline.
+- valor que vem da tela entra como parâmetro (`?`), nunca concatenado — é o
+  que evita injeção de SQL.
+- o filtro de sexo existe porque a série tem três recortes por país e ano: sem
+  ele, o mesmo país seria contado três vezes. A média da região é calculada
+  pelo banco, não no Python.
+
+O rodapé diz de onde veio cada número. Proveniência não é enfeite: no momento
+em que o número aparece na tela de alguém, ele deixa de ser seu.
+
+### O que fica registrado
+
+Governança aqui é saber responder três perguntas: de onde veio este número,
+quem pode vê-lo e o que acontece se estiver errado. A primeira o projeto
+responde desde a ingestão, com a proveniência; a segunda e a terceira são
+decisão de projeto, não tecnologia.
+
+Nenhuma fonte é de dado pessoal: são séries públicas e agregadas por país, e
+isso foi escolha registrada — a LGPD trata de dado que identifica alguém.
 
 ## O que é herdado e o que é criado
 

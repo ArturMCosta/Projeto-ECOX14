@@ -36,3 +36,6 @@ pipeline.log
 ecox14/target/
 ecox14/logs/
 ecox14/dbt_packages/
+
+# Ferramentas baixadas: sao programa, nao codigo do projeto
+duckdb.exe
