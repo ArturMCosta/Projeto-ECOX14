@@ -1,27 +1,3 @@
-"""Ponto de entrada do pipeline.
-
-ISTO NAO E ORQUESTRACAO
-=======================
-Orquestrador de verdade (Airflow, Prefect, Dagster) agenda sozinho,
-entende dependencia em grafo, tenta de novo quando falha, avisa
-alguem, roda etapas em paralelo e reprocessa periodo passado.
-
-Este arquivo nao faz nada disso. Ele e um ponto de entrada: roda as
-etapas na ordem certa, registra o que aconteceu e para quando quebra.
-
-Saber exatamente o que falta aqui e o que permite decidir, mais
-tarde, se vale a pena adotar um orquestrador.
-
-COMO EXECUTAR
-=============
-    python src/pipeline.py                  roda tudo
-    python src/pipeline.py enriquecimento   retoma do meio
-
-A retomada existe por um motivo pratico: reexecutar a ingestao bate
-na API de novo e demora. Quando o erro esta na ultima etapa, voce
-nao quer refazer a primeira.
-"""
-
 import logging
 import shutil
 import sys
@@ -47,7 +23,7 @@ def etapa_transformacao():
     import transformar_gasto_saude
     import transformar_paises
 
-    # paises primeiro: os outros tres cruzam com a prata de paises.
+    
     transformar_paises.main()
     transformar_expectativa_vida.main()
     transformar_gasto_saude.main()
@@ -67,11 +43,6 @@ def etapa_carga():
 
 
 def comando_dbt():
-    """Acha o executavel do dbt.
-
-    No Windows ele fica em Scripts\\, ao lado do python.exe, e nem sempre
-    esta no PATH -- e o caso do "dbt nao e reconhecido como comando".
-    """
     caminho = shutil.which("dbt")
     if caminho:
         return caminho
@@ -86,19 +57,10 @@ def etapa_modelagem():
     import subprocess
 
     import carga
-
-    # check=True: se o dbt falhar, o Python levanta erro. Sem isso o pipeline
-    # diria que terminou bem com a Ouro quebrada.
     subprocess.run([comando_dbt(), "run"],
                    cwd=config.RAIZ / "ecox14", check=True)
-
-    # As regras do schema.yml e de tests/ rodam aqui. Teste que depende de
-    # alguem lembrar de rodar nao protege nada: quem roda e o pipeline.
     subprocess.run([comando_dbt(), "test"],
                    cwd=config.RAIZ / "ecox14", check=True)
-
-    # O dbt constroi e prova o que declaramos; as provas que ele nao cobre
-    # (contagens e a view contra o Parquet) continuam no carga.py.
     carga.verificar_banco()
 
 

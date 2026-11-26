@@ -18,9 +18,7 @@ def mais_recente(bronze, padrao):
 
 
 def carregar(caminho):
-    """A bronze e toda em JSON. O Banco Mundial devolve campos aninhados
-    ('region': {'value': ...}), e o json_normalize achata; na WHO, onde ja
-    vem plano, ele nao muda nada."""
+    
     with caminho.open(encoding="utf-8") as f:
         return pd.json_normalize(json.load(f))
 

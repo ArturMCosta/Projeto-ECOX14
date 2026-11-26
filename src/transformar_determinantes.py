@@ -37,12 +37,7 @@ def carregar(prefixo):
 
 
 def tirar_colunas_vazias(df):
-    """Remove a coluna que nao tem nenhum valor util.
-
-    O Banco Mundial manda campo vazio como texto vazio (''), nao como nulo.
-    Testar so isna() nao acharia nada: o log diria que nao ha coluna vazia
-    enquanto elas so sairiam depois, na selecao de colunas do fim.
-    """
+    
     vazias = []
     for coluna in COLUNAS_VAZIAS:
         texto = df[coluna].astype("string").str.strip().fillna("")
@@ -115,9 +110,9 @@ def main():
         if df is None:
             df = parte
         else:
-            # outer, e nao left: as duas series nao cobrem os mesmos pares de
-            # pais e ano. Com left pelo PIB, as linhas que so tem escolaridade
-            # sumiriam sem aviso. O numero fica no log e no README.
+            
+            
+            
             df = df.merge(parte, on=["pais_id", "ano"], how="outer",
                           validate="one_to_one")
             so_escolaridade = (df["pib_per_capita_usd"].isna()

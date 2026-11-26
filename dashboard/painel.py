@@ -1,7 +1,4 @@
-"""
-Como executar, a partir da raiz do projeto:
-    streamlit run dashboard/painel.py
-"""
+
 
 import streamlit as st
 
@@ -15,25 +12,21 @@ st.set_page_config(
 
 
 def br(valor, casas=1):
-    """Numero no padrao brasileiro, com virgula decimal.
-
-    Formatacao e assunto de apresentacao, por isso mora aqui e nao no modulo
-    de consultas.
-    """
-    if valor is None or valor != valor:  # None ou NaN
+    
+    if valor is None or valor != valor:  
         return "sem dado"
     texto = f"{valor:,.{casas}f}"
     return texto.replace(",", "@").replace(".", ",").replace("@", ".")
 
 
 def pct(valor, casas=2):
-    """Percentual, ou 'sem dado' quando a media nao existe."""
+    
     if valor is None or valor != valor:
         return "sem dado"
     return br(valor, casas) + "%"
 
 
-# ------------------------------------------------------------ abertura
+
 st.title("Expectativa de vida por país")
 st.caption(
     "Camada Ouro do projeto: OMS e Banco Mundial, "
@@ -47,7 +40,7 @@ if not consultas.banco_existe():
     )
     st.stop()
 
-# ------------------------------------------------------------- filtros
+
 with st.sidebar:
     st.header("Filtros")
     regiao = st.selectbox("Região", consultas.regioes()["regiao"])
@@ -71,7 +64,7 @@ if dados.empty:
     st.warning("Nenhum registro para esse filtro.")
     st.stop()
 
-# -------------------------------------------------------- cartoes
+
 resumo = consultas.resumo_da_regiao(regiao, ano, sexo).iloc[0]
 
 c1, c2, c3 = st.columns(3)
@@ -85,7 +78,7 @@ c3.metric(
 
 st.divider()
 
-# -------------------------------------------------------- graficos
+
 esq, dir_ = st.columns([3, 2])
 
 with esq:
@@ -112,7 +105,7 @@ with dir_:
 
 st.divider()
 
-# ---------------------------------------------------------- tabela
+
 st.subheader(f"Detalhe de {regiao} em {ano}")
 st.dataframe(
     dados,
@@ -148,7 +141,7 @@ st.dataframe(
     },
 )
 
-# Todo numero apresentado a alguem deveria dizer de onde veio.
+
 st.caption(
     f"Fonte: OMS (expectativa de vida e gasto em saúde) e Banco Mundial "
     f"(PIB, escolaridade e cadastro de países). "

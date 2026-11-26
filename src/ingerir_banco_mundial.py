@@ -36,11 +36,7 @@ def pedir(url, tentativas=3):
 
 
 def buscar_paises():
-    """Metadados: nome, regiao, nivel de renda e coordenadas.
-
-    E aqui que a serie da WHO ganha o nome do pais. A WHO devolve so o
-    codigo ISO3, como 'BRA'. Quem traduz e esta tabela.
-    """
+    
     corpo = pedir(montar_url_paises()).json()
     log.info("a fonte informa: %s registros", corpo[0]["total"])
     return corpo
@@ -56,8 +52,7 @@ def conferir(meta, recebidos):
 
 
 def percorrer(codigo):
-    """Toda API pagina. Sem percorrer, voce leva a primeira pagina e
-    acha que tem a serie inteira. Nada avisa."""
+    
     registros = []
     pagina = 1
     meta = {}
@@ -77,12 +72,7 @@ def percorrer(codigo):
 
 
 def salvar(registros, prefixo):
-    """Grava um arquivo por pacote de dados, no formato que veio do servidor.
-
-    A API responde um array com os metadados na posicao 0 e os registros na
-    posicao 1. Guarda-se so a lista de registros: o que o arquivo contem e o
-    dado, e os metadados ficam na proveniencia, que e onde pertencem.
-    """
+    
     config.BRONZE_BANCO.mkdir(parents=True, exist_ok=True)
     hoje = date.today().strftime("%Y%m%d")
     destino = config.BRONZE_BANCO / f"{prefixo}_{hoje}.json"
@@ -92,7 +82,7 @@ def salvar(registros, prefixo):
 
 
 def registrar(prefixo, destino, linhas, extra=None):
-    """Acrescenta uma linha. Nunca sobrescreve a extracao anterior."""
+    
     info = {
         "fonte": config.URL_BANCO,
         "pacote": prefixo,

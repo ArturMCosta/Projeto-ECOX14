@@ -33,7 +33,7 @@ def baixar_pagina(codigo, skip):
 
 
 def percorrer(codigo):
-    """Baixa todas as paginas e so segue se veio tudo."""
+    
     esperado = conferir_total(codigo)
     log.info("a fonte informa: %s registros", esperado)
 
@@ -54,10 +54,7 @@ def percorrer(codigo):
 
 
 def salvar(registros, prefixo):
-    """Grava um arquivo por indicador, no formato que veio do servidor.
-
-    Converter formato e transformacao, e isso pertence a camada seguinte.
-    """
+    
     config.BRONZE_WHO.mkdir(parents=True, exist_ok=True)
     hoje = date.today().strftime("%Y%m%d")
     destino = config.BRONZE_WHO / f"{prefixo}_{hoje}.json"
@@ -67,7 +64,7 @@ def salvar(registros, prefixo):
 
 
 def registrar(codigo, destino, registros):
-    """Acrescenta uma linha. Nunca sobrescreve a extracao anterior."""
+    
     info = {
         "fonte": config.URL_WHO,
         "indicador": codigo,

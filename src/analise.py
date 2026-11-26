@@ -1,23 +1,4 @@
-"""
-A analise da pergunta norteadora, reproduzivel.
 
-O QUE ESTE ARQUIVO E
-====================
-Le a camada Ouro (vw_indicador_completo), ajusta os modelos que estao na
-secao "A pergunta responde?" do README e imprime as tabelas. E a versao
-que roda no terminal do que a pagina Resultados mostra no painel.
-
-O QUE ELE NAO E
-===============
-Nao e etapa do pipeline. O pipeline entrega o dado; este arquivo so le.
-Por isso ele fica em src/ e nao entra no ETAPAS do pipeline.py.
-
-COMO RODAR
-==========
-    python src/analise.py
-
-Precisa da Ouro construida e do .venv ativado, como o resto do projeto.
-"""
 
 import duckdb
 import numpy as np
@@ -27,9 +8,9 @@ import config
 
 BANCO = config.OURO / "projeto.duckdb"
 
-# Os modelos usam sexo = 'total': os outros dois recortes contariam o mesmo
-# pais de novo. A variavel de renda entra em log10, entao o coeficiente e o
-# efeito de multiplicar a renda por 10.
+
+
+
 SEXO = "total"
 MODELOS = {
     "corte": [
@@ -58,16 +39,12 @@ COEFICIENTES = [
 
 
 def banco_existe():
-    """Para o painel avisar em vez de estourar erro de conexao."""
+    
     return BANCO.exists()
 
 
 def ler_dados():
-    """Le a Ouro no recorte de sexo que os modelos usam.
-
-    read_only=True pelo mesmo motivo do painel: leitura nao pode travar o
-    arquivo para o pipeline.
-    """
+    
     con = duckdb.connect(str(BANCO), read_only=True)
     try:
         return con.execute(
@@ -90,12 +67,7 @@ def ler_dados():
 
 
 def _erro_agrupado(X, residuo, grupos, k):
-    """Erro-padrao agrupado por pais (cluster robust).
-
-    Observacoes do mesmo pais ao longo dos anos nao sao independentes; o
-    agrupamento reconhece isso. Sem ele, o erro-padrao sai menor do que
-    deveria e o teste fica otimista.
-    """
+    
     inv = np.linalg.inv(X.T @ X)
     carne = np.zeros((k, k))
     for indices in grupos.groupby(grupos).indices.values():
@@ -109,11 +81,7 @@ def _erro_agrupado(X, residuo, grupos, k):
 
 
 def _ajustar(base, xs, ano_fe=False, pais_fe=False):
-    """Ajusta um modelo e devolve n, paises, R2 e coeficientes.
-
-    ano_fe    absorve o que e comum a todos os paises num ano.
-    pais_fe   usa so a variacao de cada pais contra ele mesmo.
-    """
+    
     s = base.dropna(subset=["expectativa_vida", "pib_per_capita_usd"] + xs).copy()
     y = s["expectativa_vida"]
     colunas = s[xs].copy()
@@ -126,7 +94,7 @@ def _ajustar(base, xs, ano_fe=False, pais_fe=False):
     if ano_fe:
         dummies = pd.get_dummies(s["ano"], drop_first=True, dtype=float)
         if pais_fe:
-            # O efeito de ano tambem precisa ser descontado dentro do pais.
+            
             auxiliar = dummies.copy()
             auxiliar["_pais"] = s["pais_id"].values
             dummies = (
@@ -175,13 +143,13 @@ def _tabela(resultados, chaves):
 
 
 def _br(valor, casas=0):
-    """Numero no padrao brasileiro, sem depender do console."""
+    
     texto = f"{valor:,.{casas}f}"
     return texto.replace(",", "@").replace(".", ",").replace("@", ".")
 
 
 def _coeficiente(valor, t, casas):
-    """Coeficiente formatado; marca o que nao e significativo a 5%."""
+    
     if abs(valor) < 0.5 * 10**-casas:
         texto = "0," + "0" * casas
     else:
@@ -192,12 +160,12 @@ def _coeficiente(valor, t, casas):
 
 
 def analisar():
-    """Roda a analise inteira e devolve tabelas prontas para a tela e o CLI."""
+    
     dados = ler_dados()
     dados["log_pib"] = np.log10(dados["pib_per_capita_usd"])
 
-    # Caso completo = as quatro variaveis do modelo; e o mesmo filtro que
-    # _ajustar faz, mas aqui ele define tambem o tamanho da amostra.
+    
+    
     completas = [
         "expectativa_vida",
         "pib_per_capita_usd",
@@ -286,7 +254,7 @@ def analisar():
 
 
 def imprimir(resultado):
-    """As mesmas tabelas do README, em texto para o terminal."""
+    
     amostra = resultado["amostra"]
     print("A pergunta norteadora: renda, escolaridade e gasto")
     print("Fonte: ouro.vw_indicador_completo, sexo = 'total'")

@@ -1,32 +1,20 @@
-"""
-Pagina de analise da pergunta norteadora.
 
-COMO RODAR
-==========
-Esta pagina faz parte do app multipagina do Streamlit. Rode o app inteiro:
-
-    streamlit run dashboard/painel.py
-
-A navegacao fica na barra lateral, com a pagina principal ("painel") e esta
-("Resultados"). Nao rode este arquivo sozinho: o caminho relativo dos
-modulos e as configuracoes do app sao as do ponto de entrada principal.
-"""
 
 import sys
 from pathlib import Path
 
 import streamlit as st
 
-# A pagina esta em dashboard/pages/, entao a raiz do projeto e dois niveis
-# acima. Os modulos de leitura e analise ficam fora da pasta do painel.
+
+
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "src"))
 
-import analise  # noqa: E402
+import analise  
 
 
 def br(valor, casas=0):
-    """Numero no padrao brasileiro, com virgula decimal."""
+    
     texto = f"{valor:,.{casas}f}"
     return texto.replace(",", "@").replace(".", ",").replace("@", ".")
 
@@ -53,7 +41,7 @@ COLUNAS_COEFICIENTES = {
 
 
 def tabela_r2(tabela, com_paises=False):
-    """Mostra uma tabela de modelos e R2, com rotulos em portugues."""
+    
     exibir = tabela.copy()
     exibir["modelo"] = exibir["modelo"].replace(MODELOS)
     exibir["r2"] = exibir["r2"].map(lambda v: br(v, 3))
@@ -112,7 +100,7 @@ except Exception as erro:
 corte = r["corte"].set_index("modelo")
 a = r["amostra"]
 
-# -------------------------------------------------------- cartoes
+
 c1, c2, c3 = st.columns(3)
 c1.metric(
     "Renda sozinha, 2018",
@@ -140,7 +128,7 @@ st.caption(
 
 st.divider()
 
-# -------------------------------------------------------- tabelas
+
 st.subheader("Entre países, em 2018")
 st.caption(
     "Amostra máxima de 182 países na renda; os casos completos caem para 86 "

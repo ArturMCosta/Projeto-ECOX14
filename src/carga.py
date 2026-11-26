@@ -1,23 +1,4 @@
-"""Carrega a Prata num banco DuckDB e confere o modelo construido pelo dbt.
 
-O QUE ESTE SCRIPT FAZ
-=====================
-abre o banco, cria os esquemas prata e ouro, e copia os Parquet da prata
-para dentro dele com read_parquet. Nada mais.
-
-A Ouro NAO NASCE AQUI
-=====================
-Ela nasceu aqui ate a Aula 09, com CREATE TABLE dentro de strings do Python.
-Na Aula 10 o SQL virou um arquivo por tabela em ecox14/models/, e quem
-executa e o dbt. O construir_ouro() fica abaixo, comentado, para comparar
-as duas formas.
-
-O QUE SOBRA PARA ESTE MODULO
-============================
-conferir(): as mesmas provas da aula passada. Ela e chamada depois do dbt,
-pela etapa modelagem, porque num banco novo a Ouro ainda nao existe quando
-a carga termina.
-"""
 
 import logging
 
@@ -29,7 +10,7 @@ log = logging.getLogger(__name__)
 
 BANCO = config.OURO / "projeto.duckdb"
 
-# Tabelas da prata que entram no banco como estao.
+
 TABELAS_PRATA = {
     "paises": "paises.parquet",
     "expectativa_vida": "expectativa_vida.parquet",
@@ -40,34 +21,26 @@ TABELAS_PRATA = {
 
 
 def um_valor(con, sql):
-    """Le um numero de dentro do banco.
-
-    con.execute, e nao con.sql: o objeto devolvido por con.sql nem sempre
-    tem fetchone.
-    """
+    
     return con.execute(sql).fetchone()[0]
 
 
 def conectar():
-    """Abre o banco. O arquivo e o banco inteiro; apagar recomeca do zero."""
+    
     config.OURO.mkdir(parents=True, exist_ok=True)
     log.info("banco: %s", BANCO)
     return duckdb.connect(str(BANCO))
 
 
 def criar_esquemas(con):
-    """Camada deixa de ser pasta e passa a ser esquema."""
+    
     for esquema in ("prata", "ouro"):
         con.execute(f"CREATE SCHEMA IF NOT EXISTS {esquema}")
     log.info("esquemas prata e ouro prontos")
 
 
 def carregar_prata(con):
-    """Copia a prata para dentro do banco, sem importacao e sem declarar tipo.
-
-    O Parquet ja traz o tipo de cada coluna. Se a prata fosse CSV, seria
-    preciso redescrever as colunas aqui e torcer.
-    """
+    
     for tabela, arquivo in TABELAS_PRATA.items():
         caminho = config.PRATA / arquivo
         if not caminho.exists():
@@ -81,12 +54,7 @@ def carregar_prata(con):
 
 
 def construir_ouro(con):
-    """Aposentada na Aula 10: quem constroi a Ouro agora e o dbt.
-
-    O codigo fica aqui para comparar as duas formas -- e para mostrar o que
-    o dbt faz por baixo: exatamente estes CREATE TABLE, com a ordem que
-    antes so existia na cabeca de quem escreveu.
-    """
+    
     con.execute("""
         CREATE OR REPLACE TABLE ouro.dim_pais AS
         SELECT
@@ -108,9 +76,9 @@ def construir_ouro(con):
     log.info("ouro.dim_pais: %s linhas",
              um_valor(con, "SELECT COUNT(*) FROM ouro.dim_pais"))
 
-    # A entrada da fato e o arquivo enriquecido, como na aula. Mas so entra
-    # o que e do grao dele: as colunas de dinheiro se repetem nas tres linhas
-    # de sexo e vao para fato_contexto.
+    
+    
+    
     con.execute("""
         CREATE OR REPLACE TABLE ouro.fato_expectativa AS
         SELECT
@@ -129,8 +97,8 @@ def construir_ouro(con):
     log.info("ouro.fato_expectativa: %s linhas",
              um_valor(con, "SELECT COUNT(*) FROM ouro.fato_expectativa"))
 
-    # O contexto vem das duas tabelas que tem grão pais-ano. FULL OUTER, e nao
-    # LEFT: 446 pares pais-ano so tem PIB e escolaridade, e sete so tem gasto.
+    
+    
     con.execute("""
         CREATE OR REPLACE TABLE ouro.fato_contexto AS
         WITH g AS (
@@ -157,7 +125,7 @@ def construir_ouro(con):
     log.info("ouro.fato_contexto: %s linhas",
              um_valor(con, "SELECT COUNT(*) FROM ouro.fato_contexto"))
 
-    # O filtro de integridade tem preco, e o preco vai para o log.
+    
     for tabela in ("gasto_saude", "determinantes_socioeconomicos"):
         fora = um_valor(con, f"""
             SELECT COUNT(*) FROM prata.{tabela} t
@@ -197,19 +165,13 @@ def construir_ouro(con):
 
 
 def conferir(con):
-    """Confere o que o dbt nao cobre.
-
-    Grao, integridade e regiao da OMS unica sairam daqui: viraram testes
-    declarados em ecox14/models/schema.yml e ecox14/tests/, que a etapa de
-    modelagem roda com `dbt test`. Ficam as contagens -- que sao numero, nao
-    regra -- e a prova que compara com o Parquet, que o dbt nao faz.
-    """
+    
     for tabela in ("dim_pais", "fato_expectativa", "fato_contexto",
                    "vw_indicador_completo"):
         log.info("ouro.%s: %s linhas", tabela,
                  um_valor(con, f"SELECT COUNT(*) FROM ouro.{tabela}"))
 
-    # A prova final: a view remonta a tabela achatada, linha por linha.
+    
     caminho = (config.PRATA / "indicadores_enriquecidos.parquet").as_posix()
     diferencas = um_valor(con, f"""
         SELECT COUNT(*) FROM (
@@ -229,11 +191,7 @@ def conferir(con):
 
 
 def verificar_banco():
-    """Confere o modelo depois que o dbt criou a Ouro.
-
-    A conferencia saiu do main porque, num banco novo, a Ouro ainda nao
-    existe quando a carga termina: quem cria e a etapa seguinte.
-    """
+    
     con = conectar()
     try:
         conferir(con)
@@ -246,7 +204,7 @@ def main():
     try:
         criar_esquemas(con)
         carregar_prata(con)
-        # construir_ouro(con)   <- agora e o dbt
+        
     finally:
         con.close()
     log.info("carga concluida")

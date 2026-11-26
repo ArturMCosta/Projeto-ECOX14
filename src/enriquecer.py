@@ -1,33 +1,4 @@
-"""Enriquece a serie de expectativa de vida com o que falta nela.
 
-O QUE ESTE SCRIPT RESOLVE
-=========================
-A expectativa de vida e a tabela que responde a pergunta e a mais fina das
-quatro: uma linha por pais, ano e sexo. Mas ela nao tem PIB, nao tem
-escolaridade, nao tem gasto em saude -- e a regiao que carrega e a da OMS
-(regiao_oms), nao a do Banco Mundial.
-
-Enriquecer e trazer para perto o que estava separado. Nenhum valor nasce
-aqui: o que era de outra tabela muda de endereco. A unica coluna calculada
-e dif_mediana_regiao, e ela so existe porque a regiao do Banco Mundial
-chegou pela juncao.
-
-A ORDEM DAS JUNCOES
-===================
-A serie fica a esquerda em todas, porque e ela que responde a pergunta e
-porque e o grao mais fino. Gasto e determinantes tem uma linha por pais e
-ano, entao a relacao esperada e many_to_one.
-
-O GRAO DO RESULTADO E pais + ano + sexo
-=======================================
-As colunas de dinheiro se repetem nas tres linhas de sexo do mesmo pais e
-ano. Somar gasto ou PIB nesta tabela conta o mesmo pais tres vezes. Para
-dinheiro, use gasto_saude.parquet ou determinantes_socioeconomicos.parquet.
-
-Como executar:
-    python src/pipeline.py enriquecimento
-    python src/enriquecer.py
-"""
 
 import json
 import logging
@@ -64,7 +35,7 @@ def carregar():
 
 
 def enriquecer(serie, gasto, determinantes, cadastro):
-    """Junta as tres fontes na serie, uma de cada vez, conferindo cada passo."""
+    
     antes = len(serie)
 
     log.info("serie x gasto em saude")
@@ -102,19 +73,7 @@ def enriquecer(serie, gasto, determinantes, cadastro):
 
 
 def diferenca_mediana_regiao(df):
-    """Atributo que so existe depois da juncao.
-
-    Quanto o pais esta acima ou abaixo da mediana da sua regiao do Banco
-    Mundial, no mesmo ano e no mesmo sexo. Antes do enriquecimento esta
-    conta era impossivel: a serie traz a regiao da OMS, nao a do Banco.
-
-    O sexo entra no agrupamento. Sem ele, a expectativa masculina seria
-    comparada com a mediana dos tres sexos, e a diferenca mediria a
-    distincao entre sexos em vez da distincao entre paises.
-
-    A mediana, e nao a media: dentro de uma regiao ha paises muito
-    distantes entre si, e a media se desloca com um extremo.
-    """
+    
     mediana = df.groupby(["regiao", "ano", "sexo"], observed=True)[
         "expectativa_vida"
     ].transform("median")

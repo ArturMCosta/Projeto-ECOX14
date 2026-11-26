@@ -50,12 +50,7 @@ def conferir_chave(df, chave=["pais_id", "ano"]):
 
 
 def juntar_per_capita(df):
-    """O gasto por habitante e um pacote separado da mesma fonte.
-
-    O percentual do PIB e uma razao; o valor por habitante e um numero
-    absoluto. Guardar os dois permite comparar os dois, e nao um com o outro
-    sem levar em conta o tamanho do pais.
-    """
+    
     arquivos = sorted(config.BRONZE_WHO.glob(PADRAO_PER_CAPITA))
     if not arquivos:
         raise FileNotFoundError(f"nada com o padrao {PADRAO_PER_CAPITA}")

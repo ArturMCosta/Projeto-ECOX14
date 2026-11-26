@@ -50,12 +50,7 @@ def tipar_numero(df, colunas):
 
 
 def remover_vazias(df, colunas):
-    """Remove a linha que nao tem valor em nenhuma das colunas.
-
-    Uma linha sem nenhum dos seus dados nao responde a pergunta, e nao
-    existe valor defensavel para preencher: o territorio nao tem economia
-    registrada na fonte.
-    """
+    
     vazia = df[colunas].isna().all(axis=1)
     log.info("linhas sem nenhum dos dados: %s (%s paises)",
              int(vazia.sum()), df.loc[vazia, "pais_nome"].nunique())
@@ -63,12 +58,7 @@ def remover_vazias(df, colunas):
 
 
 def variacao_anual(df, chave, tempo, valor):
-    """Variacao em relacao ao registro anterior da mesma chave.
-
-    A chave precisa ser uma lista quando a tabela tem mais de uma dimensao:
-    com uma linha por pais, ano e sexo, agrupar so por pais comara um ano
-    com outro sexo do mesmo ano.
-    """
+    
     df = df.sort_values(chave + [tempo])
     df["variacao_pct"] = (df.groupby(chave, sort=False, observed=True)[valor]
                           .pct_change() * 100)
@@ -92,17 +82,7 @@ def marcar_extremos_iqr(df, coluna):
 
 
 def cruzar_com_paises(df, colunas):
-    """Traz do cadastro de paises as colunas que a serie nao tem.
-
-    A serie fica a esquerda porque e ela que responde a pergunta: o
-    resultado assume o grao dela, uma linha por pais e por ano (e por
-    sexo, quando houver). O cadastro tem uma linha por pais, entao a
-    relacao esperada e many_to_one -- se a chave do cadastro repetir,
-    o pandas para em vez de duplicar linhas em silencio.
-
-    Quem nao casar continua na tabela, com o nome ausente. E esse
-    pedaco que o README precisa explicar.
-    """
+    
     paises = pd.read_parquet(config.PRATA / "paises.parquet")
 
     juncao.conferir_chaves(df, paises, "pais_id", "pais_id")
