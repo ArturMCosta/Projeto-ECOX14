@@ -149,7 +149,10 @@ st.caption("Efeito fixo de ano: compara países no mesmo ano.")
 tabela_r2(r["painel"])
 
 st.subheader("Dentro do país")
-st.caption("Efeito fixo de país e de ano: usa só a variação de cada país contra ele mesmo.")
+st.caption(
+    "Efeito fixo de país e de ano: em vez de comparar países diferentes, "
+    "compara o mesmo país em anos diferentes."
+)
 tabela_r2(r["dentro"])
 
 st.subheader("Coeficientes do modelo completo")

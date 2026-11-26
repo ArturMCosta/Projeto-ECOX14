@@ -428,7 +428,9 @@ Por isso a base justa para medir a escolaridade é 0,767, e não 0,690.
 | Renda + escolaridade + gasto (% do PIB) | 0,736 |
 
 **Dentro do país** — os mesmos 1.922 pares, com efeito fixo de país e de ano,
-o que usa só a variação de cada país contra ele mesmo:
+o que usa só a variação de cada país contra ele mesmo. Em vez de perguntar se
+um país rico vive mais que um pobre, a conta pergunta se um país vive mais
+quando ele próprio fica mais rico:
 
 | Modelo | R² |
 |---|---:|
