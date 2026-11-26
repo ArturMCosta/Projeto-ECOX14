@@ -390,9 +390,11 @@ Expectativa de vida média por nível de renda:
 A ordem só aparece porque a categoria de renda foi declarada ordenada.
 
 O padrão do **ganho** é o achado: quanto mais baixa a renda, maior foi o
-avanço. A distância entre os extremos era de 22,1 anos e é de 16,6. O PIB
-multiplica por 55 entre os extremos, mas a expectativa de vida ganha cerca de
-16 anos — a relação é logarítmica, não linear.
+avanço — 9,2 anos no grupo de baixa renda contra 3,7 no de alta renda. Por isso
+a distância entre os extremos caiu de 22,1 anos em 2000 para 16,6 em 2018.
+Em 2018, o PIB médio do grupo de alta renda é cerca de 55 vezes o do grupo de
+baixa renda, mas a expectativa de vida é só 16,6 anos maior. Ou seja, 55 vezes
+mais renda não vira 55 vezes mais vida: a relação é logarítmica, não linear.
 
 ### Quanto cada fator explica
 
