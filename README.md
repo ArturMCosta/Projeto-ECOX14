@@ -66,6 +66,7 @@ O pipeline produz; o painel e a documentação consomem, e por isso rodam à par
 
 ```bash
 streamlit run dashboard/painel.py   # o painel, lendo a camada Ouro
+python src/analise.py              # a análise da pergunta norteadora
 ```
 
 A documentação do dbt e os detalhes de cada comando estão na seção
@@ -572,11 +573,15 @@ pipeline. Ele lê a Ouro e não escreve nada.
 | Arquivo | O que é |
 |---|---|
 | `dashboard/consultas.py` | o SQL de leitura, uma função por pergunta |
-| `dashboard/painel.py` | só a tela, sem SQL |
+| `dashboard/painel.py` | a página principal do app |
+| `dashboard/pages/Resultados.py` | a análise da pergunta norteadora, em outra página |
 
 ```bash
 streamlit run dashboard/painel.py
 ```
+
+O app tem duas páginas: a principal (`painel`) e **Resultados**, com a análise
+da pergunta norteadora. A navegação fica na barra lateral do Streamlit.
 
 Abre sozinho em `localhost:8501`; para parar, `Ctrl+C`. Os filtros são as 7
 regiões do Banco Mundial, os 19 anos de 2000 a 2018 e os 3 recortes de sexo.
@@ -745,11 +750,13 @@ a relação é logarítmica, não linear.
 
 ### Quanto cada fator explica
 
-Método: mínimos quadrados sobre a tabela enriquecida, com o PIB per capita em
-escala log (cada 10 vezes de renda é uma unidade), erro-padrão agrupado por
-país e, no painel, efeito fixo de ano. O modelo é leitura da Ouro, não etapa
-do pipeline. A escolaridade limita a amostra: 92 países têm o dado em 2018 na
-prata, 87 entre os 185 com expectativa de vida, e 86 têm os três dados.
+Método: mínimos quadrados sobre a view da Ouro, com `sexo = 'total'`, PIB per
+capita em escala log (cada 10 vezes de renda é uma unidade), erro-padrão
+agrupado por país e, no painel, efeito fixo de ano. O modelo é leitura da
+Ouro, não etapa do pipeline: `python src/analise.py` imprime as tabelas abaixo
+e a página **Resultados** do painel mostra as mesmas. A escolaridade limita a
+amostra: 92 países têm o dado em 2018 na prata, 87 entre os 185 com
+expectativa de vida, e 86 têm os três dados.
 
 **Entre países, em 2018.**
 
