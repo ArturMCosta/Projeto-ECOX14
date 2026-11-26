@@ -39,7 +39,7 @@ python src/pipeline.py
 | `ingestao` | baixa os pacotes: 3 indicadores da OMS e 3 do Banco Mundial |
 | `transformacao` | gera as 4 tabelas da prata |
 | `enriquecimento` | gera `indicadores_enriquecidos.parquet` |
-| `carga` | cria o banco Ouro: dimensão, duas fatos e a view |
+| `carga` | cria o banco com a prata (a Ouro nasce no dbt, na etapa seguinte) |
 | `modelagem` | roda o dbt: os quatro modelos da Ouro, na ordem do grafo, e os 15 testes |
 
 Retomar de uma etapa, sem refazer as anteriores:
@@ -341,7 +341,7 @@ fatos, cada medida mora no seu grão, e a view remonta a tabela achatada quando
 alguém precisar dela.
 
 `fato_contexto` é um `FULL OUTER JOIN` entre gasto e determinantes, e não
-`LEFT`: 446 pares país-ano têm só PIB e escolaridade, e 7 têm só gasto.
+`LEFT`: 430 pares país-ano têm só PIB e escolaridade, 9 têm só gasto e 16\ntêm só escolaridade (sem PIB nem gasto).
 
 ### O que a carga descarta
 

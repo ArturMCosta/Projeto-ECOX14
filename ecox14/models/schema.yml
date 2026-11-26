@@ -117,7 +117,7 @@ models:
     description: >
       Gasto em saude e determinantes socioeconomicos por pais e ano: uma
       linha por pais-ano. E FULL OUTER JOIN porque nem todo par tem as duas
-      fontes: 446 pares so tem PIB e escolaridade, e 7 so tem gasto.
+      fontes: 430 pares so tem PIB e escolaridade, 9 so tem gasto e 16 so tem escolaridade.
     columns:
 
       - name: pais_id
