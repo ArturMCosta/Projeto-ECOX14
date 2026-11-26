@@ -1,8 +1,8 @@
 # Life Expectancy — bronze, prata e ouro
 
 **Pergunta norteadora:** por que alguns países vivem mais que outros — e quanto
-o nível de renda, a escolaridade e o gasto em saúde explicam da expectativa
-de vida?
+o nível de renda, a escolaridade e o gasto em saúde explicam essa diferença na
+expectativa de vida?
 
 Projeto de engenharia de dados ponta a ponta: coleta de duas APIs públicas,
 transformação em camadas bronze, prata e ouro, modelagem em SQL com dbt,
@@ -57,9 +57,10 @@ streamlit run dashboard/painel.py
 python src/analise.py
 ```
 
-`dbt` e `duckdb` vêm do `.venv`; com o venv ativado eles ficam no `PATH`.
-A documentação do dbt é gerada com `dbt docs generate` e servida com
-`dbt docs serve`, dentro de `ecox14/`.
+`dbt` e a biblioteca Python do DuckDB vêm do `.venv`; o executável
+`duckdb.exe` é baixado à parte. Com o venv ativado, os comandos Python ficam
+no `PATH`. A documentação do dbt é gerada com `dbt docs generate` e servida
+com `dbt docs serve`, dentro de `ecox14/`.
 
 ## Fontes e volume
 
@@ -189,11 +190,11 @@ ORDER BY media DESC;
 
 ## Construção da Ouro com dbt
 
-Na Aula 09 a Ouro era construída por `construir_ouro()`, com `CREATE TABLE`
-dentro de strings do Python. Na Aula 10 esse SQL virou um arquivo por tabela,
-em `ecox14/models/`, executado pelo dbt.
+O SQL da Ouro virou um arquivo por tabela em `ecox14/models/`, executado pelo
+dbt. Antes, as tabelas eram criadas por `CREATE TABLE` dentro de strings no
+Python.
 
-| O que doía no SQL dentro do Python | O que o dbt faz |
+| Antes, no Python | Agora, com o dbt |
 |---|---|
 | sem editor conferindo sintaxe | modelo `.sql` que o editor entende |
 | ordem `dim` antes das fatos só no código | deduz a ordem pelas referências |
@@ -221,10 +222,10 @@ linhas, com zero diferenças entre a view e o Parquet.
 
 ## Testes, documentação e o painel
 
-Até aqui, a conferência da Ouro era um `log.info` no `carga.py`. Em dado, a
-regra precisa estar escrita — o código pode estar certo e o dado chegar errado
-da fonte. Um teste automatizado é essa regra, conferida sozinha a cada
-execução do pipeline.
+A conferência da Ouro continua em `carga.conferir()`, mas agora as regras
+também estão escritas como testes. Em dado, o código pode estar certo e o dado
+chegar errado da fonte; um teste automatizado confere isso a cada execução do
+pipeline.
 
 O dbt aceita dois tipos. O **teste pronto** é declarado no `schema.yml` e o
 dbt escreve a consulta: `unique`, `not_null`, `relationships` e
@@ -236,7 +237,7 @@ linhas**. Ele procura o defeito, e o sucesso é não achar.
 
 ### As provas manuais viraram regra
 
-| Conferência da Aula 09 | Onde está agora |
+| Conferência anterior | Onde está agora |
 |---|---|
 | grão país + ano + sexo repetido | `tests/grao_fato_expectativa.sql` |
 | grão país + ano repetido | `tests/grao_fato_contexto.sql` |
@@ -302,8 +303,9 @@ tipadas e filtradas — e **6 são criadas pelo código**. A tabela enriquecida
 não traz dado novo: são 17 colunas, das quais 16 já existiam e **uma é nova**,
 a `dif_mediana_regiao`, que só existe depois da junção.
 
-Contando nomes distintos, a prata tem **21 colunas**: 14 vindas da fonte e **7
-criadas** pelo código.
+Contando ocorrências nas quatro tabelas são 31 colunas; contando **nomes
+distintos**, a prata tem **21 colunas**: 14 vindas da fonte e **7 criadas** pelo
+código.
 
 ### Criadas por cálculo
 
@@ -357,9 +359,8 @@ feminino 82,0 — mesma média — e a OMS publica 81,9, abaixo dos dois. Dos
 Os 555 registros sem variação são todos de 2000 — o primeiro ano do recorte
 não tem ano anterior. De 2001 a 2018 nenhum registro fica sem valor.
 
-As 39 variações acima de 10% não são erro — são eventos verificáveis:
-Haiti 2010, República Centro-Africana 2009 e 2010, Somália 2011 e 2012. Desvios
-justificados não se removem, se marcam.
+Os 39 desvios grandes já foram explicados em **Qualidade dos dados**: são
+eventos reais e, por isso, foram marcados em vez de removidos.
 
 `expectativa_vida_faixa` e `escolaridade_anos_faixa` são quartis: o dado é
 cortado em 4 faixas do mesmo tamanho, com pontos de corte nos percentis 25,
@@ -368,7 +369,7 @@ cortado em 4 faixas do mesmo tamanho, com pontos de corte nos percentis 25,
 `dif_mediana_regiao` é a única coluna que depende da junção para existir: a
 conta é expectativa de vida menos a mediana da mesma região, ano e sexo.
 
-## A pergunta responde?
+## A pergunta tem resposta?
 
 A pergunta tem duas partes: por que alguns países vivem mais que outros, e
 quanto renda, escolaridade e gasto em saúde explicam. A primeira os dados
@@ -381,7 +382,7 @@ Expectativa de vida média por nível de renda:
 
 | Nível de renda | 2000 | 2018 | Ganho |
 |---|---:|---:|---:|
-| Low income | 53,2 | 62,6 | +9,4 |
+| Low income | 53,6 | 62,8 | +9,2 |
 | Lower middle income | 61,0 | 67,9 | +6,9 |
 | Upper middle income | 69,6 | 73,8 | +4,2 |
 | High income | 75,7 | 79,4 | +3,7 |
@@ -389,23 +390,25 @@ Expectativa de vida média por nível de renda:
 A ordem só aparece porque a categoria de renda foi declarada ordenada.
 
 O padrão do **ganho** é o achado: quanto mais baixa a renda, maior foi o
-avanço. A distância entre os extremos era de 22,5 anos e é de 16,8. O PIB
-multiplica por 55 entre os extremos, mas a expectativa de vida ganha 16 anos —
-a relação é logarítmica, não linear.
+avanço. A distância entre os extremos era de 22,1 anos e é de 16,6. O PIB
+multiplica por 55 entre os extremos, mas a expectativa de vida ganha cerca de
+16 anos — a relação é logarítmica, não linear.
 
 ### Quanto cada fator explica
 
-Método: mínimos quadrados sobre a view da Ouro, com `sexo = 'total'`, PIB per
-capita em escala log (cada 10 vezes de renda é uma unidade), erro-padrão
-agrupado por país e, no painel, efeito fixo de ano. O R² mede a parte da
-variação da expectativa que o modelo acompanha — por isso foi escolhido para
-uma pergunta que pergunta "quanto se explica". O modelo é leitura da Ouro,
-não etapa do pipeline: `python src/analise.py` imprime as tabelas abaixo e a
-página **Resultados** do painel mostra as mesmas. Nessa página é possível
-escolher o ano do corte entre países; os modelos de painel e dentro do país
-continuam fixos, porque usam todos os anos de uma vez. Escolaridade e gasto
-limitam a amostra: 92 países têm escolaridade em 2018 na prata, 87 entre os com
-expectativa de vida, e 86 têm expectativa, PIB, escolaridade e gasto.
+Método: mínimos quadrados sobre a view da Ouro — a linha que mais se aproxima
+dos pontos — com `sexo = 'total'`, PIB per capita em escala log (cada 10 vezes
+de renda é uma unidade), erro-padrão agrupado por país e, no painel, efeito
+fixo de ano. O R² mede o quanto o modelo melhora o palpite em relação a chutar
+a média: vai de 0 a 1, e 0,70 quer dizer 70%. Foi escolhido porque a pergunta
+pede uma porcentagem de explicação; os coeficientes mostram o tamanho do efeito.
+O modelo é leitura da Ouro, não etapa do pipeline: `python src/analise.py`
+imprime as tabelas abaixo e a página **Resultados** do painel mostra as mesmas.
+Nessa página é possível escolher o ano do corte entre países; os modelos de
+painel e dentro do país continuam fixos, porque usam todos os anos de uma vez.
+Escolaridade e gasto limitam a amostra: 92 países têm escolaridade em 2018 na
+prata, 87 entre os com expectativa de vida, e 86 têm expectativa, PIB,
+escolaridade e gasto.
 
 **Entre países, em 2018.**
 
@@ -452,10 +455,10 @@ n.s. = não significativo a 5%.
 
 ### O que os números dizem
 
-- **Quem vive mais, em média, são os países com maior renda.** Com todos os
-  países de 2018, a renda sozinha acompanha 69% da diferença; nos 86 países
-  com todos os dados, 76,7%. Com os controles, dez vezes mais renda vale 6,2
-  anos entre países e 2,3 dentro do país.
+- **Quem vive mais, em média, são os países com maior renda.** Com os 182
+  países de 2018, a renda sozinha acompanha 69% da variação; nos 86 países com
+  todos os dados, 76,7%. Com os controles, dez vezes mais renda vale 6,2 anos
+  entre países e 2,3 dentro do país.
 - **A escolaridade ajuda um pouco.** Nos mesmos 86 países, o R² sai de 0,767
   para 0,784 em 2018. Um ano a mais de escolaridade aparece com 0,4 a 0,85
   ano a mais de expectativa.
