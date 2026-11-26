@@ -69,10 +69,12 @@ st.caption(
 )
 
 st.markdown(
-    "Mínimos quadrados sobre a view da Ouro, com `sexo = 'total'`, PIB per "
-    "capita em escala log (cada 10× de renda é uma unidade), erro-padrão "
-    "agrupado por país e, no painel, efeito fixo de ano. O modelo é leitura, "
-    "não etapa do pipeline."
+    "Mínimos quadrados sobre a view da Ouro, com `sexo = 'total'`. Usei R² "
+    "porque a pergunta é quanto cada fator explica: ele mede a parte da "
+    "variação da expectativa que o modelo acompanha. O PIB entra em log "
+    "porque a renda vai de ~US$ 100 a ~US$ 100 mil; cada marcação do eixo "
+    "multiplica por 10. O erro-padrão é agrupado por país e, no painel, há "
+    "efeito fixo de ano. O modelo é leitura, não etapa do pipeline."
 )
 
 if not analise.banco_existe():
@@ -101,27 +103,33 @@ corte = r["corte"].set_index("modelo")
 a = r["amostra"]
 
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric(
-    "Renda sozinha, 2018",
+    "Renda · 182 países",
     br(corte.loc["Renda", "r2"], 3),
-    help=f"{br(a['paises_2018'])} países na amostra.",
+    help="Amostra máxima: quem tem expectativa de vida e PIB em 2018.",
 )
 c2.metric(
-    "Com escolaridade",
-    br(corte.loc["Renda + escolaridade", "r2"], 3),
-    delta=f"+{br(r['ganho_escolaridade']['corte'] * 100, 1)} p.p.",
-    help="Comparado ao mesmo modelo sem escolaridade, nos 86 países com os três dados.",
+    "Renda · 86 países",
+    br(corte.loc["Renda, so os casos completos", "r2"], 3),
+    help="Mesmos países usados nos modelos com escolaridade e gasto.",
 )
 c3.metric(
-    "Gasto em saúde",
-    "sem efeito",
-    help="Coeficiente não significativo a 5%, com renda e escolaridade no modelo.",
+    "+ escolaridade",
+    br(corte.loc["Renda + escolaridade", "r2"], 3),
+    delta=f"+{br(r['ganho_escolaridade']['corte'] * 100, 1)} p.p.",
+    help="Ganho sobre a renda nos mesmos 86 países.",
+)
+c4.metric(
+    "+ gasto",
+    br(corte.loc["Renda + escolaridade + gasto (% do PIB)", "r2"], 3),
+    help="Praticamente não muda o R².",
 )
 
 st.caption(
-    f"2018: {br(a['paises_2018'])} países; {br(a['escolaridade_2018'])} com "
-    f"escolaridade; {br(a['completos_2018'])} com os três dados. "
+    f"2018: {br(a['paises_2018'])} países com expectativa e PIB; "
+    f"{br(a['escolaridade_2018'])} têm escolaridade e "
+    f"{br(a['completos_2018'])} têm tudo. "
     f"Painel: {br(a['pares_painel'])} pares país-ano de "
     f"{br(a['paises_painel'])} países; {br(a['serie_completa'])} têm os 19 anos."
 )
@@ -131,8 +139,8 @@ st.divider()
 
 st.subheader("Entre países, em 2018")
 st.caption(
-    "Amostra máxima de 182 países na renda; os casos completos caem para 86 "
-    "porque a escolaridade é o gargalo."
+    "A renda sozinha usa até 182 países; os modelos com escolaridade e gasto "
+    "ficam com 86, que são os países com todos os dados."
 )
 tabela_r2(r["corte"], com_paises=True)
 
@@ -156,19 +164,17 @@ st.divider()
 
 st.subheader("O que os números dizem")
 st.markdown(
-    "- **A renda explica a maior parte.** Sozinha, 69,0% da diferença entre "
-    "países em 2018, 70,4% no painel e 60,8% da variação dentro do país ao "
-    "longo do tempo. Com os controles, dez vezes mais renda vale 6,2 anos "
-    "entre países e 2,3 dentro do país.\n"
-    "- **A escolaridade acrescenta pouco, mas acrescenta.** Leva o R² de "
-    "0,767 para 0,784 em 2018, de 0,704 para 0,736 no painel e de 0,608 "
-    "para 0,629 dentro do país. O coeficiente fica entre 0,4 e 0,85 ano por "
-    "ano de escolaridade.\n"
-    "- **O gasto em saúde não acrescenta nada depois dos outros dois.** A "
-    "correlação bruta com a expectativa de vida é 0,40, mas o coeficiente "
-    "vai a zero quando renda e escolaridade entram. Gasto per capita dá o "
-    "mesmo resultado e é quase colinear com o PIB (r ≈ 0,9): este dado não "
-    "separa os dois.\n"
+    "- **Quem vive mais, em média, são os países com maior renda.** Com todos "
+    "os países de 2018, a renda sozinha acompanha 69,0% da diferença; nos 86 "
+    "países com todos os dados, 76,7%. Com os controles, dez vezes mais renda "
+    "vale 6,2 anos entre países e 2,3 dentro do país.\n"
+    "- **A escolaridade ajuda um pouco.** Nos mesmos 86 países, o R² sai de "
+    "0,767 para 0,784 em 2018. Um ano a mais de escolaridade aparece com 0,4 "
+    "a 0,85 ano a mais de expectativa.\n"
+    "- **O gasto em saúde não muda esse resultado.** Sozinho ele até se "
+    "parece com a expectativa, mas quando renda e escolaridade entram o "
+    "coeficiente vai a zero. Gasto per capita dá o mesmo e é quase colinear "
+    "com o PIB (r ≈ 0,9).\n"
     "- **Entre e dentro são respostas diferentes.** Um país dez vezes mais "
     "rico tem 6,2 anos a mais que outro; um país que ficou dez vezes mais "
     "rico no período ganha 2,3. O resto da vantagem dos ricos não é renda: "

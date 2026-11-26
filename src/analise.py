@@ -264,7 +264,7 @@ def imprimir(resultado):
     print(
         f"  2018: {_br(amostra['paises_2018'])} paises, "
         f"{_br(amostra['escolaridade_2018'])} com escolaridade, "
-        f"{_br(amostra['completos_2018'])} com os tres dados"
+        f"{_br(amostra['completos_2018'])} com todos os dados"
     )
     print(
         f"  Painel 2000-2018: {_br(amostra['pares_painel'])} pares pais-ano, "

@@ -397,11 +397,13 @@ a relação é logarítmica, não linear.
 
 Método: mínimos quadrados sobre a view da Ouro, com `sexo = 'total'`, PIB per
 capita em escala log (cada 10 vezes de renda é uma unidade), erro-padrão
-agrupado por país e, no painel, efeito fixo de ano. O modelo é leitura da
-Ouro, não etapa do pipeline: `python src/analise.py` imprime as tabelas abaixo
-e a página **Resultados** do painel mostra as mesmas. A escolaridade limita a
-amostra: 92 países têm o dado em 2018 na prata, 87 entre os 185 com
-expectativa de vida, e 86 têm os três dados.
+agrupado por país e, no painel, efeito fixo de ano. O R² mede a parte da
+variação da expectativa que o modelo acompanha — por isso foi escolhido para
+uma pergunta que pergunta "quanto se explica". O modelo é leitura da Ouro,
+não etapa do pipeline: `python src/analise.py` imprime as tabelas abaixo e a
+página **Resultados** do painel mostra as mesmas. Escolaridade e gasto limitam
+a amostra: 92 países têm escolaridade em 2018 na prata, 87 entre os com
+expectativa de vida, e 86 têm expectativa, PIB, escolaridade e gasto.
 
 **Entre países, em 2018.**
 
@@ -411,6 +413,11 @@ expectativa de vida, e 86 têm os três dados.
 | Renda, só os casos completos | 86 | 0,767 |
 | Renda + escolaridade | 86 | 0,784 |
 | Renda + escolaridade + gasto (% do PIB) | 86 | 0,785 |
+
+A primeira linha usa o maior recorte possível: 182 países têm expectativa e
+PIB, mas só 86 têm também escolaridade e gasto. As três linhas seguintes usam
+sempre esses 86, para que a diferença de R² venha das variáveis, não da amostra.
+Por isso a base justa para medir a escolaridade é 0,767, e não 0,690.
 
 **No painel, 2000 a 2018** — 1.922 pares país-ano, de 169 países:
 
@@ -441,18 +448,16 @@ n.s. = não significativo a 5%.
 
 ### O que os números dizem
 
-- **A renda explica a maior parte.** Sozinha, 69% da diferença entre países em
-  2018, 70% no painel e 61% da variação dentro do país ao longo do tempo. Com
-  os controles, dez vezes mais renda vale 6,2 anos entre países e 2,3 dentro
-  do país.
-- **A escolaridade acrescenta pouco, mas acrescenta.** Leva o R² de 0,767 para
-  0,784 em 2018, de 0,704 para 0,736 no painel e de 0,608 para 0,629 dentro
-  do país. O coeficiente fica entre 0,4 e 0,85 ano por ano de escolaridade.
-- **O gasto em saúde não acrescenta nada depois dos outros dois.** A
-  correlação bruta com a expectativa de vida é 0,40, mas o coeficiente vai a
-  zero — ou fica levemente negativo, sem significância — quando renda e
-  escolaridade entram. Gasto per capita dá o mesmo resultado, e é quase
-  colinear com o PIB (r ≈ 0,9): este dado não separa os dois.
+- **Quem vive mais, em média, são os países com maior renda.** Com todos os
+  países de 2018, a renda sozinha acompanha 69% da diferença; nos 86 países
+  com todos os dados, 76,7%. Com os controles, dez vezes mais renda vale 6,2
+  anos entre países e 2,3 dentro do país.
+- **A escolaridade ajuda um pouco.** Nos mesmos 86 países, o R² sai de 0,767
+  para 0,784 em 2018. Um ano a mais de escolaridade aparece com 0,4 a 0,85
+  ano a mais de expectativa.
+- **O gasto em saúde não muda esse resultado.** Sozinho ele até se parece com
+  a expectativa, mas quando renda e escolaridade entram o coeficiente vai a
+  zero. Gasto per capita dá o mesmo e é quase colinear com o PIB (r ≈ 0,9).
 - **Entre e dentro são respostas diferentes.** Um país dez vezes mais rico tem
   6,2 anos a mais que outro; um país que ficou dez vezes mais rico no período
   ganha 2,3. O resto da vantagem dos ricos não é renda: é o que o efeito fixo
@@ -471,7 +476,7 @@ n.s. = não significativo a 5%.
   medida, e isso não é aleatório.
 - **A escolaridade acaba em 2019 e cai no fim do recorte:** 107 países em
   2002, 92 em 2018 na prata e 87 entre os 185 com expectativa de vida. Por
-  isso o modelo de 2018 usa 86 países, e não 185.
+  isso o modelo de 2018 usa 86 países, e não os 182 com PIB.
 
 ## Reprodutibilidade
 
