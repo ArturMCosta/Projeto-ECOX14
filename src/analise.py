@@ -37,6 +37,16 @@ COEFICIENTES = [
     ("gasto_saude_pct_pib", "Gasto saude, por ponto do PIB", 2),
 ]
 
+COMPLETAS = [
+    "expectativa_vida",
+    "pib_per_capita_usd",
+    "escolaridade_anos",
+    "gasto_saude_pct_pib",
+]
+XS_RENDA = ["log_pib"]
+XS_RENDA_ESCOLARIDADE = ["log_pib", "escolaridade_anos"]
+XS_COMPLETO = ["log_pib", "escolaridade_anos", "gasto_saude_pct_pib"]
+
 
 def banco_existe():
     
@@ -64,6 +74,12 @@ def ler_dados():
         ).df()
     finally:
         con.close()
+
+
+def anos_disponiveis():
+    
+    dados = ler_dados()
+    return sorted(int(ano) for ano in dados["ano"].dropna().unique())
 
 
 def _erro_agrupado(X, residuo, grupos, k):
@@ -166,19 +182,14 @@ def analisar():
 
     
     
-    completas = [
-        "expectativa_vida",
-        "pib_per_capita_usd",
-        "escolaridade_anos",
-        "gasto_saude_pct_pib",
-    ]
+    completas = COMPLETAS
     corte_2018 = dados[dados["ano"] == 2018]
     completo_2018 = corte_2018.dropna(subset=completas)
     painel = dados.dropna(subset=completas)
 
-    xs_renda = ["log_pib"]
-    xs_renda_escolaridade = ["log_pib", "escolaridade_anos"]
-    xs_completo = ["log_pib", "escolaridade_anos", "gasto_saude_pct_pib"]
+    xs_renda = XS_RENDA
+    xs_renda_escolaridade = XS_RENDA_ESCOLARIDADE
+    xs_completo = XS_COMPLETO
 
     corte = {
         "renda": _ajustar(corte_2018, xs_renda),
@@ -230,6 +241,7 @@ def analisar():
     return {
         "amostra": {
             "paises_2018": int(corte_2018["pais_id"].nunique()),
+            "paises_2018_pib": int(corte["renda"]["n"]),
             "escolaridade_2018": int(
                 corte_2018["escolaridade_anos"].notna().sum()
             ),
@@ -253,6 +265,33 @@ def analisar():
     }
 
 
+def analisar_corte(ano):
+    
+    ano = int(ano)
+    dados = ler_dados()
+    dados["log_pib"] = np.log10(dados["pib_per_capita_usd"])
+    corte = dados[dados["ano"] == ano]
+    completo = corte.dropna(subset=COMPLETAS)
+    resultados = {
+        "renda": _ajustar(corte, XS_RENDA),
+        "renda_completo": _ajustar(completo, XS_RENDA),
+        "renda_escolaridade": _ajustar(completo, XS_RENDA_ESCOLARIDADE),
+        "completo": _ajustar(completo, XS_COMPLETO),
+    }
+    return {
+        "ano": ano,
+        "amostra": {
+            "paises": int(corte["pais_id"].nunique()),
+            "paises_pib": int(resultados["renda"]["n"]),
+            "escolaridade": int(corte["escolaridade_anos"].notna().sum()),
+            "completos": int(len(completo)),
+        },
+        "corte": _tabela(resultados, MODELOS["corte"]),
+        "ganho_escolaridade": resultados["renda_escolaridade"]["r2"]
+        - resultados["renda_completo"]["r2"],
+    }
+
+
 def imprimir(resultado):
     
     amostra = resultado["amostra"]
@@ -263,6 +302,7 @@ def imprimir(resultado):
     print("== Amostra ==")
     print(
         f"  2018: {_br(amostra['paises_2018'])} paises, "
+        f"{_br(amostra['paises_2018_pib'])} com expectativa e PIB, "
         f"{_br(amostra['escolaridade_2018'])} com escolaridade, "
         f"{_br(amostra['completos_2018'])} com todos os dados"
     )

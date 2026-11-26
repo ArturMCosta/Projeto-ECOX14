@@ -90,8 +90,19 @@ def carregar():
     return analise.analisar()
 
 
+@st.cache_data(show_spinner="Lendo os anos...")
+def carregar_anos():
+    return analise.anos_disponiveis()
+
+
+@st.cache_data(show_spinner="Ajustando o ano...")
+def carregar_corte(ano):
+    return analise.analisar_corte(ano)
+
+
 try:
     r = carregar()
+    anos = carregar_anos()
 except Exception as erro:
     st.error(
         f"Não foi possível ler o banco: {erro}\n\n"
@@ -99,37 +110,50 @@ except Exception as erro:
     )
     st.stop()
 
-corte = r["corte"].set_index("modelo")
 a = r["amostra"]
 
+ano = st.selectbox(
+    "Ano do corte entre países",
+    anos,
+    index=anos.index(2018) if 2018 in anos else len(anos) - 1,
+)
+try:
+    corte_ano = carregar_corte(ano)
+except Exception as erro:
+    st.error(f"Não foi possível ajustar o ano {ano}: {erro}")
+    st.stop()
+
+ca = corte_ano["amostra"]
+corte_selecionado = corte_ano["corte"].set_index("modelo")
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric(
-    "Renda · 182 países",
-    br(corte.loc["Renda", "r2"], 3),
-    help="Amostra máxima: quem tem expectativa de vida e PIB em 2018.",
+    f"Renda · {br(ca['paises_pib'], 0)} países",
+    br(corte_selecionado.loc["Renda", "r2"], 3),
+    help=f"Amostra máxima em {ano}: quem tem expectativa de vida e PIB.",
 )
 c2.metric(
-    "Renda · 86 países",
-    br(corte.loc["Renda, so os casos completos", "r2"], 3),
+    f"Renda · {br(ca['completos'], 0)} países",
+    br(corte_selecionado.loc["Renda, so os casos completos", "r2"], 3),
     help="Mesmos países usados nos modelos com escolaridade e gasto.",
 )
 c3.metric(
     "+ escolaridade",
-    br(corte.loc["Renda + escolaridade", "r2"], 3),
-    delta=f"+{br(r['ganho_escolaridade']['corte'] * 100, 1)} p.p.",
-    help="Ganho sobre a renda nos mesmos 86 países.",
+    br(corte_selecionado.loc["Renda + escolaridade", "r2"], 3),
+    delta=f"+{br(corte_ano['ganho_escolaridade'] * 100, 1)} p.p.",
+    help=f"Ganho sobre a renda nos mesmos {br(ca['completos'], 0)} países.",
 )
 c4.metric(
     "+ gasto",
-    br(corte.loc["Renda + escolaridade + gasto (% do PIB)", "r2"], 3),
+    br(corte_selecionado.loc["Renda + escolaridade + gasto (% do PIB)", "r2"], 3),
     help="Praticamente não muda o R².",
 )
 
 st.caption(
-    f"2018: {br(a['paises_2018'])} países com expectativa e PIB; "
-    f"{br(a['escolaridade_2018'])} têm escolaridade e "
-    f"{br(a['completos_2018'])} têm tudo. "
+    f"{ano}: {br(ca['paises'], 0)} países com expectativa; "
+    f"{br(ca['paises_pib'], 0)} também com PIB; "
+    f"{br(ca['escolaridade'], 0)} com escolaridade e "
+    f"{br(ca['completos'], 0)} com tudo. "
     f"Painel: {br(a['pares_painel'])} pares país-ano de "
     f"{br(a['paises_painel'])} países; {br(a['serie_completa'])} têm os 19 anos."
 )
@@ -137,12 +161,13 @@ st.caption(
 st.divider()
 
 
-st.subheader("Entre países, em 2018")
+st.subheader(f"Entre países, em {ano}")
 st.caption(
-    "A renda sozinha usa até 182 países; os modelos com escolaridade e gasto "
-    "ficam com 86, que são os países com todos os dados."
+    f"A renda sozinha usa até {br(ca['paises_pib'], 0)} países; os modelos com "
+    f"escolaridade e gasto ficam com {br(ca['completos'], 0)}, que são os países "
+    "com todos os dados."
 )
-tabela_r2(r["corte"], com_paises=True)
+tabela_r2(corte_ano["corte"], com_paises=True)
 
 st.subheader("No painel, 2000 a 2018")
 st.caption("Efeito fixo de ano: compara países no mesmo ano.")
@@ -161,19 +186,26 @@ coef["variavel"] = coef["variavel"].replace(VARIAVEIS)
 coef = coef.rename(columns=COLUNAS_COEFICIENTES)
 coef = coef[["Variável", "Entre países (2018)", "Painel com ano", "Dentro do país"]]
 st.dataframe(coef, hide_index=True, width="stretch")
-st.caption("n.s. = não significativo a 5%; erro-padrão agrupado por país.")
+st.caption(
+    "Coeficientes do modelo completo em 2018. n.s. = não significativo a 5%; "
+    "erro-padrão agrupado por país."
+)
 
 st.divider()
 
 st.subheader("O que os números dizem")
+r2_todos = corte_selecionado.loc["Renda", "r2"]
+r2_completos = corte_selecionado.loc["Renda, so os casos completos", "r2"]
+r2_escolaridade = corte_selecionado.loc["Renda + escolaridade", "r2"]
 st.markdown(
-    "- **Quem vive mais, em média, são os países com maior renda.** Com todos "
-    "os países de 2018, a renda sozinha acompanha 69,0% da diferença; nos 86 "
-    "países com todos os dados, 76,7%. Com os controles, dez vezes mais renda "
-    "vale 6,2 anos entre países e 2,3 dentro do país.\n"
-    "- **A escolaridade ajuda um pouco.** Nos mesmos 86 países, o R² sai de "
-    "0,767 para 0,784 em 2018. Um ano a mais de escolaridade aparece com 0,4 "
-    "a 0,85 ano a mais de expectativa.\n"
+    f"- **Quem vive mais, em média, são os países com maior renda.** Em {ano}, "
+    f"a renda sozinha acompanha {br(r2_todos * 100, 1)}% da diferença entre "
+    f"países; no mesmo recorte dos modelos completos, "
+    f"{br(r2_completos * 100, 1)}%. Com os controles, dez vezes mais renda vale "
+    "6,2 anos entre países e 2,3 dentro do país.\n"
+    f"- **A escolaridade ajuda um pouco.** No mesmo recorte, o R² sai de "
+    f"{br(r2_completos, 3)} para {br(r2_escolaridade, 3)} em {ano}. Um ano a mais "
+    "de escolaridade aparece com 0,4 a 0,85 ano a mais de expectativa.\n"
     "- **O gasto em saúde não muda esse resultado.** Sozinho ele até se "
     "parece com a expectativa, mas quando renda e escolaridade entram o "
     "coeficiente vai a zero. Gasto per capita dá o mesmo e é quase colinear "

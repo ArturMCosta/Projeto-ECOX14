@@ -401,8 +401,10 @@ agrupado por país e, no painel, efeito fixo de ano. O R² mede a parte da
 variação da expectativa que o modelo acompanha — por isso foi escolhido para
 uma pergunta que pergunta "quanto se explica". O modelo é leitura da Ouro,
 não etapa do pipeline: `python src/analise.py` imprime as tabelas abaixo e a
-página **Resultados** do painel mostra as mesmas. Escolaridade e gasto limitam
-a amostra: 92 países têm escolaridade em 2018 na prata, 87 entre os com
+página **Resultados** do painel mostra as mesmas. Nessa página é possível
+escolher o ano do corte entre países; os modelos de painel e dentro do país
+continuam fixos, porque usam todos os anos de uma vez. Escolaridade e gasto
+limitam a amostra: 92 países têm escolaridade em 2018 na prata, 87 entre os com
 expectativa de vida, e 86 têm expectativa, PIB, escolaridade e gasto.
 
 **Entre países, em 2018.**
