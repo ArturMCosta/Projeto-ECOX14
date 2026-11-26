@@ -46,7 +46,7 @@ def comando_dbt():
     caminho = shutil.which("dbt")
     if caminho:
         return caminho
-    candidato = Path(sys.executable).parent / "Scripts" / "dbt.exe"
+    candidato = Path(sys.executable).parent / "dbt.exe"
     if candidato.exists():
         return str(candidato)
     raise FileNotFoundError(
